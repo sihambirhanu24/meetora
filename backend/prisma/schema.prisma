@@ -1,0 +1,36 @@
+// Prisma Schema for Meetora
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  passwordHash String
+  
+  firstName String
+  lastName  String
+  profileImage String?
+  jobTitle  String?
+  bio       String?
+  
+  emailVerified Boolean @default(false)
+  emailVerificationToken String?
+  emailVerificationExpiresAt DateTime?
+  
+  passwordResetToken String?
+  passwordResetExpiresAt DateTime?
+  
+  accountStatus String @default("active") // active, suspended, deleted
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@map("users")
+}
