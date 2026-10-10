@@ -19,11 +19,39 @@ import { ResetPasswordDto } from './dto/reset-password.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { VerifyEmailDto } from './dto/verify-email.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { GoogleAuthGuard } from './guards/google-auth.guard';
 import { CurrentUser } from './decorators/current-user.decorator';
 
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
+
+  @Get('google')
+  @UseGuards(GoogleAuthGuard)
+  async googleAuth() {
+    // Initiates Google OAuth flow
+  }
+
+  @Get('google/callback')
+  @UseGuards(GoogleAuthGuard)
+  async googleAuthCallback(
+    @Req() req: any,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const result = await this.authService.googleLogin(req.user);
+
+    // Set JWT in HTTP-only cookie
+    response.cookie('access_token', result.accessToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    });
+
+    // Redirect to frontend dashboard
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    response.redirect(`${frontendUrl}/dashboard?google_login=success`);
+  }
 
   @Post('register')
   @Throttle({ default: { limit: 5, ttl: 60000 } }) // 5 requests per minute

@@ -24,6 +24,46 @@ export class AuthService {
     private emailService: EmailService,
   ) {}
 
+  async googleLogin(googleUser: any) {
+    const { email, firstName, lastName, profileImage, providerId } = googleUser;
+
+    // Check if user exists
+    let user = await this.prisma.user.findUnique({
+      where: { email },
+    });
+
+    if (!user) {
+      // Create new user from Google data
+      user = await this.prisma.user.create({
+        data: {
+          email,
+          firstName,
+          lastName,
+          profileImage,
+          // For OAuth users, we don't have a password
+          passwordHash: await this.hashPassword(crypto.randomBytes(32).toString('hex')),
+          emailVerified: true, // Google accounts are already verified
+          accountStatus: 'active',
+        },
+      });
+    } else if (!user.emailVerified) {
+      // If user exists but email not verified, verify it now
+      await this.prisma.user.update({
+        where: { id: user.id },
+        data: { emailVerified: true },
+      });
+      user.emailVerified = true;
+    }
+
+    // Generate JWT token
+    const token = this.generateJwtToken(user.id, user.email);
+
+    return {
+      accessToken: token,
+      user: this.sanitizeUser(user),
+    };
+  }
+
   async register(registerDto: RegisterDto) {
     const { email, password, firstName, lastName } = registerDto;
 
