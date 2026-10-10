@@ -131,9 +131,13 @@ describe('AuthController (e2e)', () => {
           password: 'Password123!',
         });
 
-      const cookies = loginResponse.headers['set-cookie'] as unknown as string[];
-      const tokenCookie = cookies.find((cookie: string) => cookie.startsWith('access_token='));
-      accessToken = tokenCookie.split(';')[0].split('=')[1];
+      const cookies = loginResponse.headers['set-cookie'];
+      if (cookies && Array.isArray(cookies)) {
+        const tokenCookie = cookies.find((cookie: string) => cookie.startsWith('access_token='));
+        if (tokenCookie) {
+          accessToken = tokenCookie.split(';')[0].split('=')[1];
+        }
+      }
     });
 
     it('should return current user when authenticated', () => {
