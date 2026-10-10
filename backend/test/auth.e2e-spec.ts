@@ -131,7 +131,7 @@ describe('AuthController (e2e)', () => {
           password: 'Password123!',
         });
 
-      const cookies = loginResponse.headers['set-cookie'];
+      const cookies = loginResponse.headers['set-cookie'] as unknown as string[];
       const tokenCookie = cookies.find((cookie: string) => cookie.startsWith('access_token='));
       accessToken = tokenCookie.split(';')[0].split('=')[1];
     });
