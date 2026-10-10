@@ -1,5 +1,5 @@
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe } from '@nestjs/common';
+import { ValidationPipe, BadRequestException } from '@nestjs/common';
 import { AppModule } from './app.module';
 import * as cookieParser from 'cookie-parser';
 import { AllExceptionsFilter } from './common/filters/http-exception.filter';
@@ -25,11 +25,11 @@ async function bootstrap() {
           field: error.property,
           errors: Object.values(error.constraints || {}),
         }));
-        return {
+        return new BadRequestException({
           statusCode: 400,
           message: 'Validation failed',
           errors: messages,
-        };
+        });
       },
     }),
   );
