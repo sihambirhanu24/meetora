@@ -92,3 +92,12 @@ export const useAuth = () => {
     changePasswordMutation,
   };
 };
+
+// Separate hook for password change to use in settings
+export const useChangePassword = () => {
+  const changePasswordMutation = useMutation({
+    mutationFn: authApi.changePassword,
+  });
+
+  return changePasswordMutation;
+};
