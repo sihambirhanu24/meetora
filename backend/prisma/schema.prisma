@@ -5,33 +5,88 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider          = "postgresql"
+  url               = env("DATABASE_URL")
   shadowDatabaseUrl = env("SHADOW_DATABASE_URL")
 }
 
 model User {
-  id        String   @id @default(uuid())
-  email     String   @unique
+  id           String @id @default(uuid())
+  email        String @unique
   passwordHash String
-  
-  firstName String
-  lastName  String
+
+  firstName    String
+  lastName     String
   profileImage String?
-  jobTitle  String?
-  bio       String?
-  
-  emailVerified Boolean @default(false)
-  emailVerificationToken String?
+  jobTitle     String?
+  bio          String?
+
+  emailVerified              Boolean   @default(false)
+  emailVerificationToken     String?
   emailVerificationExpiresAt DateTime?
-  
-  passwordResetToken String?
+
+  passwordResetToken     String?
   passwordResetExpiresAt DateTime?
-  
+
   accountStatus String @default("active") // active, suspended, deleted
-  
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  
+
+  // Meeting relations
+  hostedMeetings      Meeting[]            @relation("MeetingHost")
+  meetingParticipants MeetingParticipant[]
+
   @@map("users")
+}
+
+model Meeting {
+  id          String  @id @default(uuid())
+  title       String
+  description String?
+
+  startTime DateTime
+  endTime   DateTime
+  timezone  String   @default("UTC")
+
+  meetingLink String? // Video conference link
+  meetingType String  @default("scheduled") // scheduled, instant, recurring
+  status      String  @default("scheduled") // scheduled, in_progress, completed, cancelled
+
+  hostId String
+  host   User   @relation("MeetingHost", fields: [hostId], references: [id], onDelete: Cascade)
+
+  participants MeetingParticipant[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([hostId])
+  @@index([startTime])
+  @@index([status])
+  @@map("meetings")
+}
+
+model MeetingParticipant {
+  id String @id @default(uuid())
+
+  meetingId String
+  meeting   Meeting @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  status String @default("invited") // invited, accepted, declined, tentative
+  role   String @default("participant") // participant, co-host
+
+  joinedAt DateTime?
+  leftAt   DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([meetingId, userId])
+  @@index([userId])
+  @@index([meetingId])
+  @@map("meeting_participants")
 }
