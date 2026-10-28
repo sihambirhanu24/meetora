@@ -6,6 +6,9 @@ import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { MeetingsModule } from './meetings/meetings.module';
 import { WorkspacesModule } from './workspaces/workspaces.module';
+import { MessagesModule } from './messages/messages.module';
+import { RecordingsModule } from './recordings/recordings.module';
+import { SearchModule } from './search/search.module';
 
 @Module({
   imports: [
@@ -21,6 +24,9 @@ import { WorkspacesModule } from './workspaces/workspaces.module';
     UsersModule,
     MeetingsModule,
     WorkspacesModule,
+    MessagesModule,
+    RecordingsModule,
+    SearchModule,
   ],
 })
 export class AppModule {}

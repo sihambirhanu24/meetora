@@ -23,38 +23,38 @@ export class MeetingsController {
 
   @Post()
   create(@Request() req, @Body() createMeetingDto: CreateMeetingDto) {
-    return this.meetingsService.create(req.user.userId, createMeetingDto);
+    return this.meetingsService.create(req.user.id, createMeetingDto);
   }
 
   @Get()
   findAll(@Request() req, @Query() query: { status?: string; type?: string }) {
-    return this.meetingsService.findAll(req.user.userId, query);
+    return this.meetingsService.findAll(req.user.id, query);
   }
 
   @Get('upcoming')
   findUpcoming(@Request() req) {
-    return this.meetingsService.findUpcoming(req.user.userId);
+    return this.meetingsService.findUpcoming(req.user.id);
   }
 
   @Get('pending-invites')
   findPendingInvites(@Request() req) {
-    return this.meetingsService.findPendingInvites(req.user.userId);
+    return this.meetingsService.findPendingInvites(req.user.id);
   }
 
   @Get('previous')
   findPrevious(@Request() req) {
-    return this.meetingsService.findPrevious(req.user.userId);
+    return this.meetingsService.findPrevious(req.user.id);
   }
 
   @Get('today-count')
   async getTodayCount(@Request() req) {
-    const count = await this.meetingsService.findTodayCount(req.user.userId);
+    const count = await this.meetingsService.findTodayCount(req.user.id);
     return { count };
   }
 
   @Get(':id')
   findOne(@Request() req, @Param('id') id: string) {
-    return this.meetingsService.findOne(id, req.user.userId);
+    return this.meetingsService.findOne(id, req.user.id);
   }
 
   @Patch(':id')
@@ -63,12 +63,12 @@ export class MeetingsController {
     @Param('id') id: string,
     @Body() updateMeetingDto: UpdateMeetingDto,
   ) {
-    return this.meetingsService.update(id, req.user.userId, updateMeetingDto);
+    return this.meetingsService.update(id, req.user.id, updateMeetingDto);
   }
 
   @Patch(':id/cancel')
   cancel(@Request() req, @Param('id') id: string) {
-    return this.meetingsService.cancel(id, req.user.userId);
+    return this.meetingsService.cancel(id, req.user.id);
   }
 
   @Patch(':id/status')
@@ -79,7 +79,7 @@ export class MeetingsController {
   ) {
     return this.meetingsService.updateParticipantStatus(
       id,
-      req.user.userId,
+      req.user.id,
       updateStatusDto,
     );
   }

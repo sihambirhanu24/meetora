@@ -43,6 +43,11 @@ model User {
   sentInvitations       WorkspaceInvitation[] @relation("InvitationSender")
   receivedInvitations   WorkspaceInvitation[] @relation("InvitationReceiver")
 
+  // Messaging relations
+  createdConversations     Conversation[]            @relation("ConversationCreator")
+  conversationParticipants ConversationParticipant[]
+  messages                 Message[]
+
   @@map("users")
 }
 
@@ -63,6 +68,7 @@ model Meeting {
   host   User   @relation("MeetingHost", fields: [hostId], references: [id], onDelete: Cascade)
 
   participants MeetingParticipant[]
+  recordings   Recording[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -71,6 +77,45 @@ model Meeting {
   @@index([startTime])
   @@index([status])
   @@map("meetings")
+}
+
+model Recording {
+  id String @id @default(uuid())
+
+  meetingId String
+  meeting   Meeting @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+
+  title       String
+  description String?
+
+  // Recording metadata (no actual storage - infrastructure not implemented)
+  duration    Int?     // Duration in seconds
+  fileSize    BigInt?  // File size in bytes
+  format      String?  // e.g., "mp4", "webm"
+  recordedAt  DateTime @default(now())
+
+  // Status tracking
+  status String @default("processing") // processing, available, failed, deleted
+
+  // Access control
+  hostId       String
+  workspaceId  String? // Optional workspace association
+  isPublic     Boolean @default(false) // Whether recording is publicly accessible
+  shareToken   String? @unique // Optional share token for external access
+
+  // Metadata
+  thumbnailUrl String? // Thumbnail image URL (if generated)
+  metadata     Json?   // Additional metadata (participants, chapters, etc.)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([meetingId])
+  @@index([hostId])
+  @@index([workspaceId])
+  @@index([status])
+  @@index([recordedAt])
+  @@map("recordings")
 }
 
 model MeetingParticipant {
@@ -173,4 +218,99 @@ model WorkspaceInvitation {
   @@index([status])
   @@index([token])
   @@map("workspace_invitations")
+}
+
+model Conversation {
+  id String @id @default(uuid())
+
+  type String @default("direct") // direct, group, channel
+
+  // For channels
+  workspaceId String?
+  name        String? // Channel name (only for channels)
+  description String? // Channel description
+  isPrivate   Boolean @default(false) // Whether channel is private
+
+  createdById String
+  createdBy   User   @relation("ConversationCreator", fields: [createdById], references: [id], onDelete: Cascade)
+
+  participants ConversationParticipant[]
+  messages     Message[]
+
+  lastMessageAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([workspaceId])
+  @@index([createdById])
+  @@index([type])
+  @@index([lastMessageAt])
+  @@map("conversations")
+}
+
+model ConversationParticipant {
+  id String @id @default(uuid())
+
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  role String @default("member") // admin, member (for channels)
+
+  // Read tracking
+  lastReadAt DateTime?
+
+  // Settings
+  isMuted    Boolean @default(false)
+  isPinned   Boolean @default(false)
+
+  joinedAt DateTime @default(now())
+  leftAt   DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([conversationId, userId])
+  @@index([userId])
+  @@index([conversationId])
+  @@map("conversation_participants")
+}
+
+model Message {
+  id String @id @default(uuid())
+
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  senderId String
+  sender   User   @relation(fields: [senderId], references: [id], onDelete: Cascade)
+
+  content String // Message text content
+  type    String @default("text") // text, file, image, system
+
+  // For replies/threads
+  parentMessageId String?
+  parentMessage   Message?  @relation("MessageReplies", fields: [parentMessageId], references: [id], onDelete: SetNull)
+  replies         Message[] @relation("MessageReplies")
+
+  // Metadata
+  metadata Json? // For attachments, mentions, etc.
+
+  // Status
+  isEdited  Boolean   @default(false)
+  editedAt  DateTime?
+  isDeleted Boolean   @default(false)
+  deletedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([conversationId])
+  @@index([senderId])
+  @@index([parentMessageId])
+  @@index([createdAt])
+  @@map("messages")
 }

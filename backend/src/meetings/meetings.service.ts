@@ -1,12 +1,16 @@
 import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { EmailService } from '../email/email.service';
 import { CreateMeetingDto } from './dto/create-meeting.dto';
 import { UpdateMeetingDto } from './dto/update-meeting.dto';
 import { UpdateParticipantStatusDto } from './dto/update-participant-status.dto';
 
 @Injectable()
 export class MeetingsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private emailService: EmailService,
+  ) {}
 
   async create(userId: string, createMeetingDto: CreateMeetingDto) {
     const { participantEmails, ...meetingData } = createMeetingDto;
@@ -18,6 +22,17 @@ export class MeetingsService {
     if (endTime <= startTime) {
       throw new BadRequestException('End time must be after start time');
     }
+
+    // Get host information for email
+    const host = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+      },
+    });
 
     // Create meeting
     const meeting = await this.prisma.meeting.create({
@@ -56,7 +71,7 @@ export class MeetingsService {
       },
     });
 
-    // Add participants if provided
+    // Add participants if provided and send invitations
     if (participantEmails && participantEmails.length > 0) {
       const users = await this.prisma.user.findMany({
         where: {
@@ -67,6 +82,7 @@ export class MeetingsService {
       });
 
       if (users.length > 0) {
+        // Add participants to meeting
         await this.prisma.meetingParticipant.createMany({
           data: users.map((user) => ({
             meetingId: meeting.id,
@@ -74,6 +90,25 @@ export class MeetingsService {
             status: 'invited',
           })),
         });
+
+        // Send email invitations to each participant
+        const hostName = `${host.firstName} ${host.lastName}`;
+        
+        for (const user of users) {
+          try {
+            await this.emailService.sendMeetingInvitation(user.email, {
+              title: meeting.title,
+              startTime: meeting.startTime,
+              endTime: meeting.endTime,
+              hostName,
+              meetingLink: meeting.meetingLink,
+              description: meeting.description,
+            });
+          } catch (error) {
+            // Log email error but don't fail the meeting creation
+            console.error(`Failed to send invitation email to ${user.email}:`, error);
+          }
+        }
       }
     }
 
