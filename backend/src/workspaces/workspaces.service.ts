@@ -6,6 +6,7 @@ import {
   ConflictException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { EmailService } from '../email/email.service';
 import { CreateWorkspaceDto } from './dto/create-workspace.dto';
 import { UpdateWorkspaceDto } from './dto/update-workspace.dto';
 import { InviteMemberDto } from './dto/invite-member.dto';
@@ -15,7 +16,10 @@ import { randomBytes } from 'crypto';
 
 @Injectable()
 export class WorkspacesService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private emailService: EmailService,
+  ) {}
 
   // Generate a unique slug from workspace name
   private async generateSlug(name: string, attempt = 0): Promise<string> {
@@ -237,6 +241,22 @@ export class WorkspacesService {
   ) {
     await this.checkPermission(workspaceId, userId, ['owner', 'admin']);
 
+    // Get workspace and inviter details for email
+    const workspace = await this.prisma.workspace.findUnique({
+      where: { id: workspaceId },
+      select: {
+        name: true,
+      },
+    });
+
+    const inviter = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        firstName: true,
+        lastName: true,
+      },
+    });
+
     // Check if user being invited already exists
     const invitee = await this.prisma.user.findUnique({
       where: { email: inviteMemberDto.email },
@@ -298,6 +318,21 @@ export class WorkspacesService {
         invitee: this.getUserSelect(),
       },
     });
+
+    // Send invitation email
+    try {
+      const inviterName = `${inviter.firstName} ${inviter.lastName}`;
+      await this.emailService.sendWorkspaceInvitation(inviteMemberDto.email, {
+        workspaceName: workspace.name,
+        inviterName,
+        role: inviteMemberDto.role,
+        token,
+        expiresAt,
+      });
+    } catch (error) {
+      // Log email error but don't fail the invitation creation
+      console.error(`Failed to send workspace invitation email to ${inviteMemberDto.email}:`, error);
+    }
 
     return {
       id: invitation.id,

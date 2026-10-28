@@ -1,184 +1,108 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { workspacesApi } from '../api/workspaces-api';
-import type {
-  CreateWorkspaceData,
-  UpdateWorkspaceData,
-  InviteMemberData,
-  UpdateMemberRoleData,
-  RespondInvitationData,
-} from '../types';
 
-// Get all workspaces
-export const useWorkspaces = () => {
-  return useQuery({
-    queryKey: ['workspaces'],
-    queryFn: workspacesApi.getAllWorkspaces,
-    staleTime: 2 * 60 * 1000, // 2 minutes
-  });
+export const WORKSPACES_QUERY_KEYS = {
+  all: ['workspaces'] as const,
+  detail: (id: string) => ['workspaces', id] as const,
+  members: (id: string) => ['workspaces', id, 'members'] as const,
 };
 
-// Get single workspace
-export const useWorkspace = (id: string) => {
+export function useWorkspaces() {
   return useQuery({
-    queryKey: ['workspace', id],
+    queryKey: WORKSPACES_QUERY_KEYS.all,
+    queryFn: () => workspacesApi.getAllWorkspaces(),
+  });
+}
+
+export function useWorkspace(id: string) {
+  return useQuery({
+    queryKey: WORKSPACES_QUERY_KEYS.detail(id),
     queryFn: () => workspacesApi.getWorkspace(id),
     enabled: !!id,
-    staleTime: 2 * 60 * 1000,
   });
-};
+}
 
-// Create workspace
-export const useCreateWorkspace = () => {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: (data: CreateWorkspaceData) =>
-      workspacesApi.createWorkspace(data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['workspaces'] });
-    },
-  });
-};
-
-// Update workspace
-export const useUpdateWorkspace = (workspaceId: string) => {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: (data: UpdateWorkspaceData) =>
-      workspacesApi.updateWorkspace(workspaceId, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['workspace', workspaceId] });
-      queryClient.invalidateQueries({ queryKey: ['workspaces'] });
-    },
-  });
-};
-
-// Delete workspace
-export const useDeleteWorkspace = () => {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: (workspaceId: string) =>
-      workspacesApi.deleteWorkspace(workspaceId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['workspaces'] });
-    },
-  });
-};
-
-// Get workspace members
-export const useWorkspaceMembers = (workspaceId: string) => {
+export function useWorkspaceMembers(id: string) {
   return useQuery({
-    queryKey: ['workspace', workspaceId, 'members'],
-    queryFn: () => workspacesApi.getMembers(workspaceId),
-    enabled: !!workspaceId,
-    staleTime: 1 * 60 * 1000,
+    queryKey: WORKSPACES_QUERY_KEYS.members(id),
+    queryFn: () => workspacesApi.getWorkspaceMembers(id),
+    enabled: !!id,
   });
-};
+}
 
-// Invite member
-export const useInviteMember = (workspaceId: string) => {
+export function useCreateWorkspace() {
   const queryClient = useQueryClient();
-
+  
   return useMutation({
-    mutationFn: (data: InviteMemberData) =>
+    mutationFn: workspacesApi.createWorkspace,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: WORKSPACES_QUERY_KEYS.all });
+    },
+  });
+}
+
+export function useUpdateWorkspace() {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: any }) =>
+      workspacesApi.updateWorkspace(id, data),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: WORKSPACES_QUERY_KEYS.all });
+      queryClient.invalidateQueries({ queryKey: WORKSPACES_QUERY_KEYS.detail(variables.id) });
+    },
+  });
+}
+
+export function useDeleteWorkspace() {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: (id: string) => workspacesApi.deleteWorkspace(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: WORKSPACES_QUERY_KEYS.all });
+    },
+  });
+}
+
+export function useInviteMember() {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: ({ workspaceId, data }: { workspaceId: string; data: any }) =>
       workspacesApi.inviteMember(workspaceId, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ['workspace', workspaceId, 'invitations'],
-      });
-      queryClient.invalidateQueries({ queryKey: ['workspace', workspaceId] });
-    },
-  });
-};
-
-// Get workspace invitations
-export const useWorkspaceInvitations = (workspaceId: string) => {
-  return useQuery({
-    queryKey: ['workspace', workspaceId, 'invitations'],
-    queryFn: () => workspacesApi.getInvitations(workspaceId),
-    enabled: !!workspaceId,
-    staleTime: 1 * 60 * 1000,
-  });
-};
-
-// Get my invitations
-export const useMyInvitations = () => {
-  return useQuery({
-    queryKey: ['myInvitations'],
-    queryFn: workspacesApi.getMyInvitations,
-    staleTime: 1 * 60 * 1000,
-  });
-};
-
-// Respond to invitation
-export const useRespondToInvitation = () => {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: ({
-      invitationId,
-      data,
-    }: {
-      invitationId: string;
-      data: RespondInvitationData;
-    }) => workspacesApi.respondToInvitation(invitationId, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['myInvitations'] });
-      queryClient.invalidateQueries({ queryKey: ['workspaces'] });
-    },
-  });
-};
-
-// Update member role
-export const useUpdateMemberRole = (workspaceId: string) => {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: ({
-      memberId,
-      data,
-    }: {
-      memberId: string;
-      data: UpdateMemberRoleData;
-    }) => workspacesApi.updateMemberRole(workspaceId, memberId, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ['workspace', workspaceId, 'members'],
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ 
+        queryKey: WORKSPACES_QUERY_KEYS.detail(variables.workspaceId) 
       });
     },
   });
-};
+}
 
-// Remove member
-export const useRemoveMember = (workspaceId: string) => {
+export function useUpdateMemberRole() {
   const queryClient = useQueryClient();
-
+  
   return useMutation({
-    mutationFn: (memberId: string) =>
+    mutationFn: ({ workspaceId, memberId, role }: { workspaceId: string; memberId: string; role: string }) =>
+      workspacesApi.updateMemberRole(workspaceId, memberId, role),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ 
+        queryKey: WORKSPACES_QUERY_KEYS.members(variables.workspaceId) 
+      });
+    },
+  });
+}
+
+export function useRemoveMember() {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: ({ workspaceId, memberId }: { workspaceId: string; memberId: string }) =>
       workspacesApi.removeMember(workspaceId, memberId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ['workspace', workspaceId, 'members'],
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ 
+        queryKey: WORKSPACES_QUERY_KEYS.members(variables.workspaceId) 
       });
-      queryClient.invalidateQueries({ queryKey: ['workspace', workspaceId] });
     },
   });
-};
-
-// Cancel invitation
-export const useCancelInvitation = (workspaceId: string) => {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: (invitationId: string) =>
-      workspacesApi.cancelInvitation(workspaceId, invitationId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ['workspace', workspaceId, 'invitations'],
-      });
-      queryClient.invalidateQueries({ queryKey: ['workspace', workspaceId] });
-    },
-  });
-};
+}

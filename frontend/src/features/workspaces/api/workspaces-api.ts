@@ -1,125 +1,69 @@
 import axios from '@/lib/api/axios';
-import type {
-  Workspace,
-  WorkspaceMember,
-  WorkspaceInvitation,
-  CreateWorkspaceData,
-  UpdateWorkspaceData,
-  InviteMemberData,
-  UpdateMemberRoleData,
-  RespondInvitationData,
-} from '../types';
+
+export interface WorkspaceOwner {
+  id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  profileImage?: string;
+  jobTitle?: string;
+}
+
+export interface Workspace {
+  id: string;
+  name: string;
+  description?: string;
+  slug: string;
+  isPublic: boolean;
+  ownerId: string;
+  owner?: WorkspaceOwner;
+  myRole?: string;
+  memberCount?: number;
+  createdAt: string;
+  updatedAt: string;
+}
 
 export const workspacesApi = {
-  // Get all workspaces for current user
   getAllWorkspaces: async (): Promise<Workspace[]> => {
-    const response = await axios.get('/workspaces');
-    return response.data;
+    const { data } = await axios.get('/workspaces');
+    return data;
   },
 
-  // Get single workspace by ID
   getWorkspace: async (id: string): Promise<Workspace> => {
-    const response = await axios.get(`/workspaces/${id}`);
-    return response.data;
+    const { data } = await axios.get(`/workspaces/${id}`);
+    return data;
   },
 
-  // Create new workspace
-  createWorkspace: async (data: CreateWorkspaceData): Promise<Workspace> => {
-    const response = await axios.post('/workspaces', data);
-    return response.data;
+  getWorkspaceMembers: async (id: string): Promise<any[]> => {
+    const { data } = await axios.get(`/workspaces/${id}/members`);
+    return data;
   },
 
-  // Update workspace
-  updateWorkspace: async (
-    id: string,
-    data: UpdateWorkspaceData,
-  ): Promise<Workspace> => {
-    const response = await axios.patch(`/workspaces/${id}`, data);
-    return response.data;
+  createWorkspace: async (workspaceData: any): Promise<Workspace> => {
+    const { data } = await axios.post('/workspaces', workspaceData);
+    return data;
   },
 
-  // Delete workspace
-  deleteWorkspace: async (id: string): Promise<{ message: string }> => {
-    const response = await axios.delete(`/workspaces/${id}`);
-    return response.data;
+  updateWorkspace: async (id: string, workspaceData: any): Promise<Workspace> => {
+    const { data } = await axios.patch(`/workspaces/${id}`, workspaceData);
+    return data;
   },
 
-  // Get workspace members
-  getMembers: async (workspaceId: string): Promise<WorkspaceMember[]> => {
-    const response = await axios.get(`/workspaces/${workspaceId}/members`);
-    return response.data;
+  deleteWorkspace: async (id: string): Promise<void> => {
+    await axios.delete(`/workspaces/${id}`);
   },
 
-  // Invite member to workspace
-  inviteMember: async (
-    workspaceId: string,
-    data: InviteMemberData,
-  ): Promise<WorkspaceInvitation> => {
-    const response = await axios.post(
-      `/workspaces/${workspaceId}/members/invite`,
-      data,
-    );
-    return response.data;
+  inviteMember: async (workspaceId: string, inviteData: any): Promise<any> => {
+    const { data } = await axios.post(`/workspaces/${workspaceId}/members/invite`, inviteData);
+    return data;
   },
 
-  // Get workspace invitations (pending)
-  getInvitations: async (
-    workspaceId: string,
-  ): Promise<WorkspaceInvitation[]> => {
-    const response = await axios.get(`/workspaces/${workspaceId}/invitations`);
-    return response.data;
+  updateMemberRole: async (workspaceId: string, memberId: string, role: string): Promise<any> => {
+    const { data } = await axios.patch(`/workspaces/${workspaceId}/members/${memberId}/role`, { role });
+    return data;
   },
 
-  // Get invitations received by current user
-  getMyInvitations: async (): Promise<WorkspaceInvitation[]> => {
-    const response = await axios.get('/workspaces/invitations/me');
-    return response.data;
-  },
-
-  // Respond to invitation
-  respondToInvitation: async (
-    invitationId: string,
-    data: RespondInvitationData,
-  ): Promise<{ message: string }> => {
-    const response = await axios.post(
-      `/workspaces/invitations/${invitationId}/respond`,
-      data,
-    );
-    return response.data;
-  },
-
-  // Update member role
-  updateMemberRole: async (
-    workspaceId: string,
-    memberId: string,
-    data: UpdateMemberRoleData,
-  ): Promise<WorkspaceMember> => {
-    const response = await axios.patch(
-      `/workspaces/${workspaceId}/members/${memberId}/role`,
-      data,
-    );
-    return response.data;
-  },
-
-  // Remove member from workspace
-  removeMember: async (
-    workspaceId: string,
-    memberId: string,
-  ): Promise<{ message: string }> => {
-    const response = await axios.delete(
-      `/workspaces/${workspaceId}/members/${memberId}`,
-    );
-    return response.data;
-  },
-
-  // Cancel invitation
-  cancelInvitation: async (
-    workspaceId: string,
-    invitationId: string,
-  ): Promise<{ message: string }> => {
-    const response = await axios.delete(
-      `/workspaces/${workspaceId}/invitations/${invitationId}`,
-    );
-    return response.data;
+  removeMember: async (workspaceId: string, memberId: string): Promise<void> => {
+    await axios.delete(`/workspaces/${workspaceId}/members/${memberId}`);
   },
 };

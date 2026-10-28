@@ -21,7 +21,7 @@ interface InviteMemberModalProps {
 }
 
 export function InviteMemberModal({ isOpen, onClose, workspaceId, workspaceName }: InviteMemberModalProps) {
-  const inviteMember = useInviteMember(workspaceId);
+  const inviteMember = useInviteMember();
   const [successMessage, setSuccessMessage] = useState('');
 
   const {
@@ -39,7 +39,13 @@ export function InviteMemberModal({ isOpen, onClose, workspaceId, workspaceName 
   const onSubmit = async (data: InviteFormData) => {
     try {
       setSuccessMessage('');
-      await inviteMember.mutateAsync(data);
+      await inviteMember.mutateAsync({
+        workspaceId,
+        data: {
+          email: data.email,
+          role: data.role,
+        },
+      });
       setSuccessMessage('Invitation sent successfully!');
       reset();
       setTimeout(() => {

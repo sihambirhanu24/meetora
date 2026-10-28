@@ -27,7 +27,7 @@ export default function WorkspaceSettingsPage() {
   const workspaceId = params?.id as string;
 
   const { data: workspace, isLoading: workspaceLoading } = useWorkspace(workspaceId);
-  const updateWorkspace = useUpdateWorkspace(workspaceId);
+  const updateWorkspace = useUpdateWorkspace();
   const deleteWorkspace = useDeleteWorkspace();
   const [successMessage, setSuccessMessage] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
@@ -82,9 +82,12 @@ export default function WorkspaceSettingsPage() {
     try {
       setSuccessMessage('');
       await updateWorkspace.mutateAsync({
-        name: data.name,
-        description: data.description || undefined,
-        isPublic: data.isPublic,
+        id: workspaceId,
+        data: {
+          name: data.name,
+          description: data.description || undefined,
+          isPublic: data.isPublic,
+        },
       });
       setSuccessMessage('Workspace updated successfully!');
       setTimeout(() => setSuccessMessage(''), 3000);

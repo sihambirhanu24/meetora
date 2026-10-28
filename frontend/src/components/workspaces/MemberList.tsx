@@ -12,15 +12,19 @@ interface MemberListProps {
 }
 
 export function MemberList({ workspaceId, members, myRole, currentUserId }: MemberListProps) {
-  const updateMemberRole = useUpdateMemberRole(workspaceId);
-  const removeMember = useRemoveMember(workspaceId);
+  const updateMemberRole = useUpdateMemberRole();
+  const removeMember = useRemoveMember();
   const [editingMemberId, setEditingMemberId] = useState<string | null>(null);
 
   const canManageMembers = myRole === 'owner' || myRole === 'admin';
 
   const handleRoleChange = async (memberId: string, newRole: string) => {
     try {
-      await updateMemberRole.mutateAsync({ memberId, data: { role: newRole } });
+      await updateMemberRole.mutateAsync({ 
+        workspaceId,
+        memberId, 
+        role: newRole 
+      });
       setEditingMemberId(null);
     } catch (error) {
       console.error('Failed to update role:', error);
@@ -33,7 +37,7 @@ export function MemberList({ workspaceId, members, myRole, currentUserId }: Memb
     }
 
     try {
-      await removeMember.mutateAsync(memberId);
+      await removeMember.mutateAsync({ workspaceId, memberId });
     } catch (error) {
       console.error('Failed to remove member:', error);
     }
