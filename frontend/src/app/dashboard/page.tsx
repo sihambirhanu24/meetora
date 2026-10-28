@@ -9,7 +9,7 @@ import { MobileNav } from '@/components/dashboard/MobileNav';
 import { WelcomeSection } from '@/components/dashboard/WelcomeSection';
 import { ProfileSummaryCard } from '@/components/dashboard/ProfileSummaryCard';
 import { WorkspaceSummaryCard } from '@/components/dashboard/WorkspaceSummaryCard';
-import { StatsCard } from '@/components/dashboard/StatsCard';
+import { WorkspaceCountCard } from '@/components/dashboard/WorkspaceCountCard';
 import { QuickAccessCard } from '@/components/dashboard/QuickAccessCard';
 import { ScheduledMeetingsPanel } from '@/components/dashboard/ScheduledMeetingsPanel';
 import { MeetingRoomPanel } from '@/components/dashboard/MeetingRoomPanel';
@@ -64,15 +64,7 @@ export default function DashboardPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
             <ProfileSummaryCard />
             <WorkspaceSummaryCard />
-            <StatsCard
-              label="Active Workspaces"
-              value="1"
-              icon={
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                </svg>
-              }
-            />
+            <WorkspaceCountCard />
           </div>
 
           {/* Quick Access Cards */}
