@@ -1,24 +1,27 @@
-import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
-import { ThrottlerModule } from '@nestjs/throttler';
-import { PrismaModule } from './prisma/prisma.module';
-import { AuthModule } from './auth/auth.module';
-import { UsersModule } from './users/users.module';
-import { MeetingsModule } from './meetings/meetings.module';
-import { WorkspacesModule } from './workspaces/workspaces.module';
-import { MessagesModule } from './messages/messages.module';
-import { RecordingsModule } from './recordings/recordings.module';
-import { SearchModule } from './search/search.module';
+import { Module } from "@nestjs/common";
+import { ConfigModule } from "@nestjs/config";
+import { ThrottlerModule } from "@nestjs/throttler";
+import { PrismaModule } from "./prisma/prisma.module";
+import { AuthModule } from "./auth/auth.module";
+import { UsersModule } from "./users/users.module";
+import { MeetingsModule } from "./meetings/meetings.module";
+import { WorkspacesModule } from "./workspaces/workspaces.module";
+import { MessagesModule } from "./messages/messages.module";
+import { RecordingsModule } from "./recordings/recordings.module";
+import { SearchModule } from "./search/search.module";
+import { NotificationsModule } from "./notifications/notifications.module";
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
     }),
-    ThrottlerModule.forRoot([{
-      ttl: 60000, // 1 minute
-      limit: 10, // 10 requests per minute
-    }]),
+    ThrottlerModule.forRoot([
+      {
+        ttl: 60000, // 1 minute
+        limit: 10, // 10 requests per minute
+      },
+    ]),
     PrismaModule,
     AuthModule,
     UsersModule,
@@ -27,6 +30,7 @@ import { SearchModule } from './search/search.module';
     MessagesModule,
     RecordingsModule,
     SearchModule,
+    NotificationsModule,
   ],
 })
 export class AppModule {}

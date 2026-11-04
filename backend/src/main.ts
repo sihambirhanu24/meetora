@@ -1,9 +1,9 @@
-import { NestFactory } from '@nestjs/core';
-import { ValidationPipe, BadRequestException } from '@nestjs/common';
-import { AppModule } from './app.module';
-import * as cookieParser from 'cookie-parser';
-import { AllExceptionsFilter } from './common/filters/http-exception.filter';
-import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
+import { NestFactory } from "@nestjs/core";
+import { ValidationPipe, BadRequestException } from "@nestjs/common";
+import { AppModule } from "./app.module";
+import * as cookieParser from "cookie-parser";
+import { AllExceptionsFilter } from "./common/filters/http-exception.filter";
+import { LoggingInterceptor } from "./common/interceptors/logging.interceptor";
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -27,7 +27,7 @@ async function bootstrap() {
         }));
         return new BadRequestException({
           statusCode: 400,
-          message: 'Validation failed',
+          message: "Validation failed",
           errors: messages,
         });
       },
@@ -39,16 +39,23 @@ async function bootstrap() {
 
   // CORS configuration
   app.enableCors({
-    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+    origin: [
+      "http://localhost:3000",
+      "http://localhost:3001",
+      "http://localhost:3002",
+      process.env.FRONTEND_URL,
+    ].filter(Boolean),
     credentials: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "Accept"],
   });
 
   // Global prefix
-  app.setGlobalPrefix('api');
+  app.setGlobalPrefix("api");
 
   const port = process.env.PORT || 3001;
   await app.listen(port);
-  
+
   console.log(`🚀 Meetora API running on http://localhost:${port}/api`);
 }
 

@@ -4,8 +4,8 @@ import {
   ArgumentsHost,
   HttpException,
   HttpStatus,
-} from '@nestjs/common';
-import { Request, Response } from 'express';
+} from "@nestjs/common";
+import { Request, Response } from "express";
 
 @Catch()
 export class AllExceptionsFilter implements ExceptionFilter {
@@ -15,14 +15,14 @@ export class AllExceptionsFilter implements ExceptionFilter {
     const request = ctx.getRequest<Request>();
 
     let status = HttpStatus.INTERNAL_SERVER_ERROR;
-    let message = 'Internal server error';
+    let message = "Internal server error";
     let errors: any = undefined;
 
     if (exception instanceof HttpException) {
       status = exception.getStatus();
       const exceptionResponse = exception.getResponse();
 
-      if (typeof exceptionResponse === 'object') {
+      if (typeof exceptionResponse === "object") {
         const responseObj = exceptionResponse as any;
         message = responseObj.message || exception.message;
         errors = responseObj.errors;
@@ -35,7 +35,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
 
     // Log error for debugging (not exposed to client)
     if (status >= 500) {
-      console.error('Server Error:', {
+      console.error("Server Error:", {
         timestamp: new Date().toISOString(),
         path: request.url,
         method: request.method,
@@ -44,7 +44,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
     }
 
     // Don't expose internal error details in production
-    const isDevelopment = process.env.NODE_ENV === 'development';
+    const isDevelopment = process.env.NODE_ENV === "development";
     const errorResponse: any = {
       statusCode: status,
       message: Array.isArray(message) ? message : [message],
