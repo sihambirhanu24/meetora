@@ -1,43 +1,46 @@
-import { Injectable } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import * as nodemailer from 'nodemailer';
+import { Injectable } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
+import * as nodemailer from "nodemailer";
 
 @Injectable()
 export class EmailService {
   private transporter: nodemailer.Transporter;
 
   constructor(private configService: ConfigService) {
-    const emailProvider = this.configService.get('EMAIL_PROVIDER', 'console');
+    const emailProvider = this.configService.get("EMAIL_PROVIDER", "console");
 
-    if (emailProvider === 'smtp') {
+    if (emailProvider === "smtp") {
       // Real SMTP configuration
       this.transporter = nodemailer.createTransport({
-        host: this.configService.get('SMTP_HOST'),
-        port: this.configService.get('SMTP_PORT'),
+        host: this.configService.get("SMTP_HOST"),
+        port: this.configService.get("SMTP_PORT"),
         secure: false,
         auth: {
-          user: this.configService.get('SMTP_USER'),
-          pass: this.configService.get('SMTP_PASSWORD'),
+          user: this.configService.get("SMTP_USER"),
+          pass: this.configService.get("SMTP_PASSWORD"),
         },
       });
     } else {
       // Development: log to console
       this.transporter = nodemailer.createTransport({
         streamTransport: true,
-        newline: 'unix',
+        newline: "unix",
         buffer: true,
       });
     }
   }
 
   async sendVerificationEmail(to: string, token: string) {
-    const frontendUrl = this.configService.get('FRONTEND_URL', 'http://localhost:3000');
+    const frontendUrl = this.configService.get(
+      "FRONTEND_URL",
+      "http://localhost:3000",
+    );
     const verificationLink = `${frontendUrl}/auth/verify-email?token=${token}`;
 
     const mailOptions = {
-      from: this.configService.get('EMAIL_FROM', 'noreply@meetora.com'),
+      from: this.configService.get("EMAIL_FROM", "noreply@meetora.com"),
       to,
-      subject: 'Verify your Meetora account',
+      subject: "Verify your Meetora account",
       html: `
         <h1>Welcome to Meetora!</h1>
         <p>Please verify your email address by clicking the link below:</p>
@@ -51,13 +54,16 @@ export class EmailService {
   }
 
   async sendPasswordResetEmail(to: string, token: string) {
-    const frontendUrl = this.configService.get('FRONTEND_URL', 'http://localhost:3000');
+    const frontendUrl = this.configService.get(
+      "FRONTEND_URL",
+      "http://localhost:3000",
+    );
     const resetLink = `${frontendUrl}/auth/reset-password?token=${token}`;
 
     const mailOptions = {
-      from: this.configService.get('EMAIL_FROM', 'noreply@meetora.com'),
+      from: this.configService.get("EMAIL_FROM", "noreply@meetora.com"),
       to,
-      subject: 'Reset your Meetora password',
+      subject: "Reset your Meetora password",
       html: `
         <h1>Password Reset Request</h1>
         <p>You requested to reset your password. Click the link below to proceed:</p>
@@ -81,18 +87,21 @@ export class EmailService {
       description?: string;
     },
   ) {
-    const frontendUrl = this.configService.get('FRONTEND_URL', 'http://localhost:3000');
+    const frontendUrl = this.configService.get(
+      "FRONTEND_URL",
+      "http://localhost:3000",
+    );
     const meetingUrl = `${frontendUrl}/meetings`;
-    
+
     const formatDate = (date: Date) => {
-      return new Intl.DateTimeFormat('en-US', {
-        dateStyle: 'full',
-        timeStyle: 'short',
+      return new Intl.DateTimeFormat("en-US", {
+        dateStyle: "full",
+        timeStyle: "short",
       }).format(date);
     };
 
     const mailOptions = {
-      from: this.configService.get('EMAIL_FROM', 'noreply@meetora.com'),
+      from: this.configService.get("EMAIL_FROM", "noreply@meetora.com"),
       to,
       subject: `Meeting Invitation: ${meetingDetails.title}`,
       html: `
@@ -101,7 +110,7 @@ export class EmailService {
         
         <div style="background-color: #f5f5f5; padding: 20px; border-radius: 8px; margin: 20px 0;">
           <h2 style="margin-top: 0;">${meetingDetails.title}</h2>
-          ${meetingDetails.description ? `<p>${meetingDetails.description}</p>` : ''}
+          ${meetingDetails.description ? `<p>${meetingDetails.description}</p>` : ""}
           <p><strong>Start Time:</strong> ${formatDate(meetingDetails.startTime)}</p>
           <p><strong>End Time:</strong> ${formatDate(meetingDetails.endTime)}</p>
         </div>
@@ -135,26 +144,30 @@ export class EmailService {
       expiresAt: Date;
     },
   ) {
-    const frontendUrl = this.configService.get('FRONTEND_URL', 'http://localhost:3000');
+    const frontendUrl = this.configService.get(
+      "FRONTEND_URL",
+      "http://localhost:3000",
+    );
     const acceptUrl = `${frontendUrl}/workspaces/invitation?token=${invitationDetails.token}`;
-    
+
     const formatDate = (date: Date) => {
-      return new Intl.DateTimeFormat('en-US', {
-        dateStyle: 'medium',
+      return new Intl.DateTimeFormat("en-US", {
+        dateStyle: "medium",
       }).format(date);
     };
 
     const roleLabels = {
-      owner: 'Owner',
-      admin: 'Administrator',
-      member: 'Member',
-      guest: 'Guest',
+      owner: "Owner",
+      admin: "Administrator",
+      member: "Member",
+      guest: "Guest",
     };
 
-    const roleName = roleLabels[invitationDetails.role as keyof typeof roleLabels] || 'Member';
+    const roleName =
+      roleLabels[invitationDetails.role as keyof typeof roleLabels] || "Member";
 
     const mailOptions = {
-      from: this.configService.get('EMAIL_FROM', 'noreply@meetora.com'),
+      from: this.configService.get("EMAIL_FROM", "noreply@meetora.com"),
       to,
       subject: `Workspace Invitation: ${invitationDetails.workspaceName}`,
       html: `
@@ -190,12 +203,12 @@ export class EmailService {
     const info = await this.transporter.sendMail(mailOptions);
 
     // For development (console mode), log the email
-    if (this.configService.get('EMAIL_PROVIDER', 'console') === 'console') {
-      console.log('📧 Email sent (console mode):');
-      console.log('To:', mailOptions.to);
-      console.log('Subject:', mailOptions.subject);
-      console.log('HTML:', mailOptions.html);
-      console.log('---');
+    if (this.configService.get("EMAIL_PROVIDER", "console") === "console") {
+      console.log("📧 Email sent (console mode):");
+      console.log("To:", mailOptions.to);
+      console.log("Subject:", mailOptions.subject);
+      console.log("HTML:", mailOptions.html);
+      console.log("---");
     }
 
     return info;

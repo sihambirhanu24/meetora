@@ -4,17 +4,17 @@ import {
   ConflictException,
   BadRequestException,
   NotFoundException,
-} from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
-import { PrismaService } from '../prisma/prisma.service';
-import { EmailService } from '../email/email.service';
-import * as bcrypt from 'bcrypt';
-import * as crypto from 'crypto';
-import { RegisterDto } from './dto/register.dto';
-import { LoginDto } from './dto/login.dto';
-import { ForgotPasswordDto } from './dto/forgot-password.dto';
-import { ResetPasswordDto } from './dto/reset-password.dto';
-import { ChangePasswordDto } from './dto/change-password.dto';
+} from "@nestjs/common";
+import { JwtService } from "@nestjs/jwt";
+import { PrismaService } from "../prisma/prisma.service";
+import { EmailService } from "../email/email.service";
+import * as bcrypt from "bcrypt";
+import * as crypto from "crypto";
+import { RegisterDto } from "./dto/register.dto";
+import { LoginDto } from "./dto/login.dto";
+import { ForgotPasswordDto } from "./dto/forgot-password.dto";
+import { ResetPasswordDto } from "./dto/reset-password.dto";
+import { ChangePasswordDto } from "./dto/change-password.dto";
 
 @Injectable()
 export class AuthService {
@@ -41,9 +41,11 @@ export class AuthService {
           lastName,
           profileImage,
           // For OAuth users, we don't have a password
-          passwordHash: await this.hashPassword(crypto.randomBytes(32).toString('hex')),
+          passwordHash: await this.hashPassword(
+            crypto.randomBytes(32).toString("hex"),
+          ),
           emailVerified: true, // Google accounts are already verified
-          accountStatus: 'active',
+          accountStatus: "active",
         },
       });
     } else if (!user.emailVerified) {
@@ -76,7 +78,7 @@ export class AuthService {
     });
 
     if (existingUser) {
-      throw new ConflictException('Email already registered');
+      throw new ConflictException("Email already registered");
     }
 
     // Hash password
@@ -84,7 +86,9 @@ export class AuthService {
 
     // Generate email verification token
     const emailVerificationToken = this.generateSecureToken();
-    const emailVerificationExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+    const emailVerificationExpiresAt = new Date(
+      Date.now() + 24 * 60 * 60 * 1000,
+    ); // 24 hours
 
     // Create user
     const user = await this.prisma.user.create({
@@ -99,10 +103,14 @@ export class AuthService {
     });
 
     // Send verification email
-    await this.emailService.sendVerificationEmail(user.email, emailVerificationToken);
+    await this.emailService.sendVerificationEmail(
+      user.email,
+      emailVerificationToken,
+    );
 
     return {
-      message: 'Registration successful. Please check your email to verify your account.',
+      message:
+        "Registration successful. Please check your email to verify your account.",
       user: this.sanitizeUser(user),
     };
   }
@@ -119,19 +127,22 @@ export class AuthService {
     });
 
     if (!user) {
-      throw new UnauthorizedException('Invalid credentials');
+      throw new UnauthorizedException("Invalid credentials");
     }
 
     // Check account status
-    if (user.accountStatus !== 'active') {
-      throw new UnauthorizedException('Account is not active');
+    if (user.accountStatus !== "active") {
+      throw new UnauthorizedException("Account is not active");
     }
 
     // Verify password
-    const isPasswordValid = await this.comparePassword(password, user.passwordHash);
+    const isPasswordValid = await this.comparePassword(
+      password,
+      user.passwordHash,
+    );
 
     if (!isPasswordValid) {
-      throw new UnauthorizedException('Invalid credentials');
+      throw new UnauthorizedException("Invalid credentials");
     }
 
     // Check email verification (optional - can allow login before verification)
@@ -159,7 +170,7 @@ export class AuthService {
     });
 
     if (!user) {
-      throw new BadRequestException('Invalid or expired verification token');
+      throw new BadRequestException("Invalid or expired verification token");
     }
 
     // Mark email as verified and clear token
@@ -173,7 +184,7 @@ export class AuthService {
     });
 
     return {
-      message: 'Email verified successfully',
+      message: "Email verified successfully",
     };
   }
 
@@ -182,7 +193,8 @@ export class AuthService {
     const normalizedEmail = email.toLowerCase().trim();
 
     // Always return success to prevent user enumeration
-    const genericMessage = 'If an account exists, password reset instructions have been sent.';
+    const genericMessage =
+      "If an account exists, password reset instructions have been sent.";
 
     const user = await this.prisma.user.findUnique({
       where: { email: normalizedEmail },
@@ -207,7 +219,10 @@ export class AuthService {
     });
 
     // Send reset email
-    await this.emailService.sendPasswordResetEmail(user.email, passwordResetToken);
+    await this.emailService.sendPasswordResetEmail(
+      user.email,
+      passwordResetToken,
+    );
 
     return { message: genericMessage };
   }
@@ -225,7 +240,7 @@ export class AuthService {
     });
 
     if (!user) {
-      throw new BadRequestException('Invalid or expired reset token');
+      throw new BadRequestException("Invalid or expired reset token");
     }
 
     // Hash new password
@@ -242,7 +257,7 @@ export class AuthService {
     });
 
     return {
-      message: 'Password reset successfully',
+      message: "Password reset successfully",
     };
   }
 
@@ -254,14 +269,17 @@ export class AuthService {
     });
 
     if (!user) {
-      throw new NotFoundException('User not found');
+      throw new NotFoundException("User not found");
     }
 
     // Verify current password
-    const isPasswordValid = await this.comparePassword(currentPassword, user.passwordHash);
+    const isPasswordValid = await this.comparePassword(
+      currentPassword,
+      user.passwordHash,
+    );
 
     if (!isPasswordValid) {
-      throw new UnauthorizedException('Current password is incorrect');
+      throw new UnauthorizedException("Current password is incorrect");
     }
 
     // Hash new password
@@ -274,7 +292,7 @@ export class AuthService {
     });
 
     return {
-      message: 'Password changed successfully',
+      message: "Password changed successfully",
     };
   }
 
@@ -283,7 +301,7 @@ export class AuthService {
       where: { id: userId },
     });
 
-    if (!user || user.accountStatus !== 'active') {
+    if (!user || user.accountStatus !== "active") {
       return null;
     }
 
@@ -296,12 +314,15 @@ export class AuthService {
     return bcrypt.hash(password, saltRounds);
   }
 
-  private async comparePassword(password: string, hash: string): Promise<boolean> {
+  private async comparePassword(
+    password: string,
+    hash: string,
+  ): Promise<boolean> {
     return bcrypt.compare(password, hash);
   }
 
   private generateSecureToken(): string {
-    return crypto.randomBytes(32).toString('hex');
+    return crypto.randomBytes(32).toString("hex");
   }
 
   private generateJwtToken(userId: string, email: string): string {
@@ -310,7 +331,12 @@ export class AuthService {
   }
 
   private sanitizeUser(user: any) {
-    const { passwordHash, passwordResetToken, emailVerificationToken, ...safeUser } = user;
+    const {
+      passwordHash,
+      passwordResetToken,
+      emailVerificationToken,
+      ...safeUser
+    } = user;
     return safeUser;
   }
 }
