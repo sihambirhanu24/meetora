@@ -1,8 +1,15 @@
-import { IsString, IsOptional, IsBoolean, IsArray, IsUUID, IsIn } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsBoolean,
+  IsArray,
+  IsUUID,
+  IsIn,
+} from "class-validator";
 
 export class CreateConversationDto {
   @IsString()
-  @IsIn(['direct', 'group', 'channel'])
+  @IsIn(["direct", "group", "channel"])
   type: string;
 
   @IsOptional()
@@ -22,6 +29,6 @@ export class CreateConversationDto {
   isPrivate?: boolean;
 
   @IsArray()
-  @IsUUID('4', { each: true })
+  @IsUUID("4", { each: true })
   participantIds: string[]; // User IDs to add to conversation
 }

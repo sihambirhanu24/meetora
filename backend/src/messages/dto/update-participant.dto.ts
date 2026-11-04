@@ -1,8 +1,8 @@
-import { IsOptional, IsBoolean, IsDateString, IsIn } from 'class-validator';
+import { IsOptional, IsBoolean, IsDateString, IsIn } from "class-validator";
 
 export class UpdateParticipantDto {
   @IsOptional()
-  @IsIn(['admin', 'member'])
+  @IsIn(["admin", "member"])
   role?: string;
 
   @IsOptional()

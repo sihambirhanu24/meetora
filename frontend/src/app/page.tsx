@@ -1,29 +1,29 @@
-import Link from 'next/link';
+'use client';
+
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/features/auth/hooks/use-auth';
 
 export default function Home() {
+  const router = useRouter();
+  const { isAuthenticated, isLoading } = useAuth();
+
+  useEffect(() => {
+    if (!isLoading) {
+      if (isAuthenticated) {
+        router.push('/dashboard');
+      } else {
+        router.push('/auth/sign-in');
+      }
+    }
+  }, [isAuthenticated, isLoading, router]);
+
+  // Show loading spinner while checking authentication
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-50 to-primary-100">
-      <div className="max-w-4xl mx-auto px-4 py-16 text-center">
-        <h1 className="text-6xl font-bold text-primary-900 mb-6">
-          Welcome to Meetora
-        </h1>
-        <p className="text-xl text-primary-700 mb-8">
-          Professional video conferencing and communication platform
-        </p>
-        <div className="flex gap-4 justify-center">
-          <Link
-            href="/auth/sign-in"
-            className="px-8 py-3 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors font-medium"
-          >
-            Sign In
-          </Link>
-          <Link
-            href="/auth/sign-up"
-            className="px-8 py-3 bg-white text-primary-600 rounded-lg hover:bg-gray-50 transition-colors font-medium border-2 border-primary-600"
-          >
-            Sign Up
-          </Link>
-        </div>
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
+      <div className="text-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+        <p className="text-gray-600">Loading Meetora...</p>
       </div>
     </div>
   );

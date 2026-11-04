@@ -1,4 +1,11 @@
-import { IsString, IsNotEmpty, IsOptional, MaxLength, Matches, IsBoolean } from 'class-validator';
+import {
+  IsString,
+  IsNotEmpty,
+  IsOptional,
+  MaxLength,
+  Matches,
+  IsBoolean,
+} from "class-validator";
 
 export class CreateWorkspaceDto {
   @IsString()
@@ -14,7 +21,7 @@ export class CreateWorkspaceDto {
   @IsString()
   @IsOptional()
   @Matches(/^[a-z0-9-]+$/, {
-    message: 'Slug must contain only lowercase letters, numbers, and hyphens',
+    message: "Slug must contain only lowercase letters, numbers, and hyphens",
   })
   @MaxLength(100)
   slug?: string;

@@ -1,8 +1,8 @@
-import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
+import { Injectable } from "@nestjs/common";
+import { PrismaService } from "../prisma/prisma.service";
 
 export interface SearchResult {
-  type: 'meeting' | 'workspace' | 'person';
+  type: "meeting" | "workspace" | "person";
   id: string;
   title: string;
   subtitle?: string;
@@ -40,13 +40,13 @@ export class SearchService {
             {
               title: {
                 contains: query,
-                mode: 'insensitive',
+                mode: "insensitive",
               },
             },
             {
               description: {
                 contains: query,
-                mode: 'insensitive',
+                mode: "insensitive",
               },
             },
           ],
@@ -62,13 +62,13 @@ export class SearchService {
       },
       take: 5,
       orderBy: {
-        startTime: 'desc',
+        startTime: "desc",
       },
     });
 
     results.push(
       ...meetings.map((meeting) => ({
-        type: 'meeting' as const,
+        type: "meeting" as const,
         id: meeting.id,
         title: meeting.title,
         subtitle: `Hosted by ${meeting.host.firstName} ${meeting.host.lastName}`,
@@ -92,13 +92,13 @@ export class SearchService {
           {
             name: {
               contains: query,
-              mode: 'insensitive',
+              mode: "insensitive",
             },
           },
           {
             description: {
               contains: query,
-              mode: 'insensitive',
+              mode: "insensitive",
             },
           },
         ],
@@ -112,16 +112,16 @@ export class SearchService {
       },
       take: 5,
       orderBy: {
-        name: 'asc',
+        name: "asc",
       },
     });
 
     results.push(
       ...workspaces.map((workspace) => ({
-        type: 'workspace' as const,
+        type: "workspace" as const,
         id: workspace.id,
         title: workspace.name,
-        subtitle: `${workspace._count.members} member${workspace._count.members !== 1 ? 's' : ''}`,
+        subtitle: `${workspace._count.members} member${workspace._count.members !== 1 ? "s" : ""}`,
         url: `/workspaces/${workspace.id}`,
       })),
     );
@@ -153,19 +153,19 @@ export class SearchService {
               {
                 firstName: {
                   contains: query,
-                  mode: 'insensitive',
+                  mode: "insensitive",
                 },
               },
               {
                 lastName: {
                   contains: query,
-                  mode: 'insensitive',
+                  mode: "insensitive",
                 },
               },
               {
                 email: {
                   contains: query,
-                  mode: 'insensitive',
+                  mode: "insensitive",
                 },
               },
             ],
@@ -182,13 +182,13 @@ export class SearchService {
       },
       take: 5,
       orderBy: {
-        firstName: 'asc',
+        firstName: "asc",
       },
     });
 
     results.push(
       ...people.map((person) => ({
-        type: 'person' as const,
+        type: "person" as const,
         id: person.id,
         title: `${person.firstName} ${person.lastName}`,
         subtitle: person.jobTitle || person.email,

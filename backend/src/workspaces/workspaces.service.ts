@@ -4,15 +4,15 @@ import {
   ForbiddenException,
   BadRequestException,
   ConflictException,
-} from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
-import { EmailService } from '../email/email.service';
-import { CreateWorkspaceDto } from './dto/create-workspace.dto';
-import { UpdateWorkspaceDto } from './dto/update-workspace.dto';
-import { InviteMemberDto } from './dto/invite-member.dto';
-import { UpdateMemberRoleDto } from './dto/update-member-role.dto';
-import { RespondInvitationDto } from './dto/respond-invitation.dto';
-import { randomBytes } from 'crypto';
+} from "@nestjs/common";
+import { PrismaService } from "../prisma/prisma.service";
+import { EmailService } from "../email/email.service";
+import { CreateWorkspaceDto } from "./dto/create-workspace.dto";
+import { UpdateWorkspaceDto } from "./dto/update-workspace.dto";
+import { InviteMemberDto } from "./dto/invite-member.dto";
+import { UpdateMemberRoleDto } from "./dto/update-member-role.dto";
+import { RespondInvitationDto } from "./dto/respond-invitation.dto";
+import { randomBytes } from "crypto";
 
 @Injectable()
 export class WorkspacesService {
@@ -25,8 +25,8 @@ export class WorkspacesService {
   private async generateSlug(name: string, attempt = 0): Promise<string> {
     let slug = name
       .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-|-$/g, '');
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "");
 
     if (attempt > 0) {
       slug = `${slug}-${attempt}`;
@@ -45,7 +45,9 @@ export class WorkspacesService {
 
   // Create a new workspace
   async create(userId: string, createWorkspaceDto: CreateWorkspaceDto) {
-    const slug = createWorkspaceDto.slug || await this.generateSlug(createWorkspaceDto.name);
+    const slug =
+      createWorkspaceDto.slug ||
+      (await this.generateSlug(createWorkspaceDto.name));
 
     // Check if slug is already taken
     if (createWorkspaceDto.slug) {
@@ -53,7 +55,7 @@ export class WorkspacesService {
         where: { slug },
       });
       if (existing) {
-        throw new ConflictException('Workspace slug is already taken');
+        throw new ConflictException("Workspace slug is already taken");
       }
     }
 
@@ -67,7 +69,7 @@ export class WorkspacesService {
         members: {
           create: {
             userId,
-            role: 'owner',
+            role: "owner",
           },
         },
       },
@@ -116,7 +118,7 @@ export class WorkspacesService {
         },
       },
       orderBy: {
-        createdAt: 'desc',
+        createdAt: "desc",
       },
     });
 
@@ -138,7 +140,7 @@ export class WorkspacesService {
             user: this.getUserSelect(),
           },
           orderBy: {
-            joinedAt: 'desc',
+            joinedAt: "desc",
           },
         },
         _count: {
@@ -151,7 +153,7 @@ export class WorkspacesService {
     });
 
     if (!workspace) {
-      throw new NotFoundException('Workspace not found');
+      throw new NotFoundException("Workspace not found");
     }
 
     // Check if user is a member
@@ -165,7 +167,7 @@ export class WorkspacesService {
     });
 
     if (!membership) {
-      throw new ForbiddenException('You are not a member of this workspace');
+      throw new ForbiddenException("You are not a member of this workspace");
     }
 
     return {
@@ -182,7 +184,7 @@ export class WorkspacesService {
     userId: string,
     updateWorkspaceDto: UpdateWorkspaceDto,
   ) {
-    await this.checkPermission(workspaceId, userId, ['owner', 'admin']);
+    await this.checkPermission(workspaceId, userId, ["owner", "admin"]);
 
     const workspace = await this.prisma.workspace.update({
       where: { id: workspaceId },
@@ -202,13 +204,13 @@ export class WorkspacesService {
 
   // Delete workspace
   async remove(workspaceId: string, userId: string) {
-    await this.checkPermission(workspaceId, userId, ['owner']);
+    await this.checkPermission(workspaceId, userId, ["owner"]);
 
     await this.prisma.workspace.delete({
       where: { id: workspaceId },
     });
 
-    return { message: 'Workspace deleted successfully' };
+    return { message: "Workspace deleted successfully" };
   }
 
   // Get workspace members
@@ -221,7 +223,7 @@ export class WorkspacesService {
         user: this.getUserSelect(),
       },
       orderBy: {
-        joinedAt: 'desc',
+        joinedAt: "desc",
       },
     });
 
@@ -239,7 +241,7 @@ export class WorkspacesService {
     userId: string,
     inviteMemberDto: InviteMemberDto,
   ) {
-    await this.checkPermission(workspaceId, userId, ['owner', 'admin']);
+    await this.checkPermission(workspaceId, userId, ["owner", "admin"]);
 
     // Get workspace and inviter details for email
     const workspace = await this.prisma.workspace.findUnique({
@@ -274,7 +276,9 @@ export class WorkspacesService {
       });
 
       if (existingMember) {
-        throw new ConflictException('User is already a member of this workspace');
+        throw new ConflictException(
+          "User is already a member of this workspace",
+        );
       }
     }
 
@@ -283,16 +287,18 @@ export class WorkspacesService {
       where: {
         workspaceId,
         email: inviteMemberDto.email,
-        status: 'pending',
+        status: "pending",
       },
     });
 
     if (pendingInvitation) {
-      throw new ConflictException('An invitation is already pending for this email');
+      throw new ConflictException(
+        "An invitation is already pending for this email",
+      );
     }
 
     // Create invitation
-    const token = randomBytes(32).toString('hex');
+    const token = randomBytes(32).toString("hex");
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7); // Expires in 7 days
 
@@ -331,7 +337,10 @@ export class WorkspacesService {
       });
     } catch (error) {
       // Log email error but don't fail the invitation creation
-      console.error(`Failed to send workspace invitation email to ${inviteMemberDto.email}:`, error);
+      console.error(
+        `Failed to send workspace invitation email to ${inviteMemberDto.email}:`,
+        error,
+      );
     }
 
     return {
@@ -350,19 +359,19 @@ export class WorkspacesService {
 
   // Get pending invitations for a workspace
   async getInvitations(workspaceId: string, userId: string) {
-    await this.checkPermission(workspaceId, userId, ['owner', 'admin']);
+    await this.checkPermission(workspaceId, userId, ["owner", "admin"]);
 
     const invitations = await this.prisma.workspaceInvitation.findMany({
       where: {
         workspaceId,
-        status: 'pending',
+        status: "pending",
       },
       include: {
         inviter: this.getUserSelect(),
         invitee: this.getUserSelect(),
       },
       orderBy: {
-        createdAt: 'desc',
+        createdAt: "desc",
       },
     });
 
@@ -388,7 +397,7 @@ export class WorkspacesService {
     const invitations = await this.prisma.workspaceInvitation.findMany({
       where: {
         email: user.email,
-        status: 'pending',
+        status: "pending",
         expiresAt: {
           gte: new Date(),
         },
@@ -405,7 +414,7 @@ export class WorkspacesService {
         inviter: this.getUserSelect(),
       },
       orderBy: {
-        createdAt: 'desc',
+        createdAt: "desc",
       },
     });
 
@@ -428,19 +437,19 @@ export class WorkspacesService {
     });
 
     if (!invitation) {
-      throw new NotFoundException('Invitation not found');
+      throw new NotFoundException("Invitation not found");
     }
 
     if (invitation.email !== user.email) {
-      throw new ForbiddenException('This invitation is not for you');
+      throw new ForbiddenException("This invitation is not for you");
     }
 
-    if (invitation.status !== 'pending') {
-      throw new BadRequestException('Invitation has already been responded to');
+    if (invitation.status !== "pending") {
+      throw new BadRequestException("Invitation has already been responded to");
     }
 
     if (invitation.expiresAt < new Date()) {
-      throw new BadRequestException('Invitation has expired');
+      throw new BadRequestException("Invitation has expired");
     }
 
     // Update invitation status
@@ -454,7 +463,7 @@ export class WorkspacesService {
     });
 
     // If accepted, add user to workspace
-    if (respondDto.status === 'accepted') {
+    if (respondDto.status === "accepted") {
       await this.prisma.workspaceMember.create({
         data: {
           workspaceId: invitation.workspaceId,
@@ -474,7 +483,7 @@ export class WorkspacesService {
     userId: string,
     updateRoleDto: UpdateMemberRoleDto,
   ) {
-    await this.checkPermission(workspaceId, userId, ['owner', 'admin']);
+    await this.checkPermission(workspaceId, userId, ["owner", "admin"]);
 
     const member = await this.prisma.workspaceMember.findUnique({
       where: { id: memberId },
@@ -484,16 +493,18 @@ export class WorkspacesService {
     });
 
     if (!member || member.workspaceId !== workspaceId) {
-      throw new NotFoundException('Member not found in this workspace');
+      throw new NotFoundException("Member not found in this workspace");
     }
 
     // Cannot change owner role
-    if (member.role === 'owner') {
-      throw new ForbiddenException('Cannot change the role of the workspace owner');
+    if (member.role === "owner") {
+      throw new ForbiddenException(
+        "Cannot change the role of the workspace owner",
+      );
     }
 
     // Only owner can create admins
-    if (updateRoleDto.role === 'admin') {
+    if (updateRoleDto.role === "admin") {
       const requester = await this.prisma.workspaceMember.findUnique({
         where: {
           workspaceId_userId: {
@@ -503,8 +514,10 @@ export class WorkspacesService {
         },
       });
 
-      if (requester.role !== 'owner') {
-        throw new ForbiddenException('Only workspace owner can assign admin role');
+      if (requester.role !== "owner") {
+        throw new ForbiddenException(
+          "Only workspace owner can assign admin role",
+        );
       }
     }
 
@@ -525,48 +538,52 @@ export class WorkspacesService {
 
   // Remove member from workspace
   async removeMember(workspaceId: string, memberId: string, userId: string) {
-    await this.checkPermission(workspaceId, userId, ['owner', 'admin']);
+    await this.checkPermission(workspaceId, userId, ["owner", "admin"]);
 
     const member = await this.prisma.workspaceMember.findUnique({
       where: { id: memberId },
     });
 
     if (!member || member.workspaceId !== workspaceId) {
-      throw new NotFoundException('Member not found in this workspace');
+      throw new NotFoundException("Member not found in this workspace");
     }
 
     // Cannot remove owner
-    if (member.role === 'owner') {
-      throw new ForbiddenException('Cannot remove the workspace owner');
+    if (member.role === "owner") {
+      throw new ForbiddenException("Cannot remove the workspace owner");
     }
 
     await this.prisma.workspaceMember.delete({
       where: { id: memberId },
     });
 
-    return { message: 'Member removed from workspace' };
+    return { message: "Member removed from workspace" };
   }
 
   // Cancel invitation
-  async cancelInvitation(workspaceId: string, invitationId: string, userId: string) {
-    await this.checkPermission(workspaceId, userId, ['owner', 'admin']);
+  async cancelInvitation(
+    workspaceId: string,
+    invitationId: string,
+    userId: string,
+  ) {
+    await this.checkPermission(workspaceId, userId, ["owner", "admin"]);
 
     const invitation = await this.prisma.workspaceInvitation.findUnique({
       where: { id: invitationId },
     });
 
     if (!invitation || invitation.workspaceId !== workspaceId) {
-      throw new NotFoundException('Invitation not found');
+      throw new NotFoundException("Invitation not found");
     }
 
     await this.prisma.workspaceInvitation.update({
       where: { id: invitationId },
       data: {
-        status: 'cancelled',
+        status: "cancelled",
       },
     });
 
-    return { message: 'Invitation cancelled' };
+    return { message: "Invitation cancelled" };
   }
 
   // Helper: Check if user is a member of workspace
@@ -581,7 +598,7 @@ export class WorkspacesService {
     });
 
     if (!member) {
-      throw new ForbiddenException('You are not a member of this workspace');
+      throw new ForbiddenException("You are not a member of this workspace");
     }
 
     return member;
@@ -596,7 +613,9 @@ export class WorkspacesService {
     const member = await this.checkMembership(workspaceId, userId);
 
     if (!allowedRoles.includes(member.role)) {
-      throw new ForbiddenException('You do not have permission to perform this action');
+      throw new ForbiddenException(
+        "You do not have permission to perform this action",
+      );
     }
 
     return member;

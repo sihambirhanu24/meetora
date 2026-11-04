@@ -9,13 +9,13 @@ import {
   UseGuards,
   Request,
   Query,
-} from '@nestjs/common';
-import { RecordingsService } from './recordings.service';
-import { CreateRecordingDto } from './dto/create-recording.dto';
-import { UpdateRecordingDto } from './dto/update-recording.dto';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+} from "@nestjs/common";
+import { RecordingsService } from "./recordings.service";
+import { CreateRecordingDto } from "./dto/create-recording.dto";
+import { UpdateRecordingDto } from "./dto/update-recording.dto";
+import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 
-@Controller('recordings')
+@Controller("recordings")
 export class RecordingsController {
   constructor(private readonly recordingsService: RecordingsService) {}
 
@@ -29,11 +29,11 @@ export class RecordingsController {
   @UseGuards(JwtAuthGuard)
   findAll(
     @Request() req,
-    @Query('status') status?: string,
-    @Query('workspaceId') workspaceId?: string,
-    @Query('hostId') hostId?: string,
-    @Query('startDate') startDate?: string,
-    @Query('endDate') endDate?: string,
+    @Query("status") status?: string,
+    @Query("workspaceId") workspaceId?: string,
+    @Query("hostId") hostId?: string,
+    @Query("startDate") startDate?: string,
+    @Query("endDate") endDate?: string,
   ) {
     return this.recordingsService.findAll(req.user.id, {
       status,
@@ -44,40 +44,36 @@ export class RecordingsController {
     });
   }
 
-  @Get('shared/:token')
-  findByShareToken(@Param('token') token: string) {
+  @Get("shared/:token")
+  findByShareToken(@Param("token") token: string) {
     return this.recordingsService.findByShareToken(token);
   }
 
-  @Get(':id')
+  @Get(":id")
   @UseGuards(JwtAuthGuard)
-  findOne(@Request() req, @Param('id') id: string) {
+  findOne(@Request() req, @Param("id") id: string) {
     return this.recordingsService.findOne(id, req.user.id);
   }
 
-  @Patch(':id')
+  @Patch(":id")
   @UseGuards(JwtAuthGuard)
   update(
     @Request() req,
-    @Param('id') id: string,
+    @Param("id") id: string,
     @Body() updateRecordingDto: UpdateRecordingDto,
   ) {
-    return this.recordingsService.update(
-      id,
-      req.user.id,
-      updateRecordingDto,
-    );
+    return this.recordingsService.update(id, req.user.id, updateRecordingDto);
   }
 
-  @Delete(':id')
+  @Delete(":id")
   @UseGuards(JwtAuthGuard)
-  remove(@Request() req, @Param('id') id: string) {
+  remove(@Request() req, @Param("id") id: string) {
     return this.recordingsService.remove(id, req.user.id);
   }
 
-  @Post(':id/share')
+  @Post(":id/share")
   @UseGuards(JwtAuthGuard)
-  generateShareToken(@Request() req, @Param('id') id: string) {
+  generateShareToken(@Request() req, @Param("id") id: string) {
     return this.recordingsService.generateShareToken(id, req.user.id);
   }
 }

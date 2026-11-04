@@ -1,4 +1,11 @@
-import { IsString, IsOptional, IsBoolean, IsUUID, IsInt, Min } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsBoolean,
+  IsUUID,
+  IsInt,
+  Min,
+} from "class-validator";
 
 export class CreateRecordingDto {
   @IsUUID()

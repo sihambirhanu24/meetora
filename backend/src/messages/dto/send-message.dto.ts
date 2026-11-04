@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsUUID, IsIn, MaxLength } from 'class-validator';
+import { IsString, IsOptional, IsUUID, IsIn, MaxLength } from "class-validator";
 
 export class SendMessageDto {
   @IsString()
@@ -7,7 +7,7 @@ export class SendMessageDto {
 
   @IsOptional()
   @IsString()
-  @IsIn(['text', 'file', 'image', 'system'])
+  @IsIn(["text", "file", "image", "system"])
   type?: string;
 
   @IsOptional()

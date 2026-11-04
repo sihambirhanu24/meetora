@@ -2,10 +2,10 @@ import {
   Injectable,
   NotFoundException,
   ForbiddenException,
-} from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
-import { CreateRecordingDto } from './dto/create-recording.dto';
-import { UpdateRecordingDto } from './dto/update-recording.dto';
+} from "@nestjs/common";
+import { PrismaService } from "../prisma/prisma.service";
+import { CreateRecordingDto } from "./dto/create-recording.dto";
+import { UpdateRecordingDto } from "./dto/update-recording.dto";
 
 @Injectable()
 export class RecordingsService {
@@ -21,11 +21,13 @@ export class RecordingsService {
     });
 
     if (!meeting) {
-      throw new NotFoundException('Meeting not found');
+      throw new NotFoundException("Meeting not found");
     }
 
     if (meeting.hostId !== userId) {
-      throw new ForbiddenException('Only the meeting host can create recordings');
+      throw new ForbiddenException(
+        "Only the meeting host can create recordings",
+      );
     }
 
     // If workspace is specified, verify membership
@@ -39,7 +41,7 @@ export class RecordingsService {
         meetingId,
         hostId: userId,
         workspaceId,
-        status: 'processing', // Default status
+        status: "processing", // Default status
       },
       include: {
         meeting: {
@@ -125,7 +127,7 @@ export class RecordingsService {
         },
       },
       orderBy: {
-        recordedAt: 'desc',
+        recordedAt: "desc",
       },
     });
 
@@ -151,13 +153,13 @@ export class RecordingsService {
     });
 
     if (!recording) {
-      throw new NotFoundException('Recording not found');
+      throw new NotFoundException("Recording not found");
     }
 
     // Check if user has access
     const hasAccess = await this.checkRecordingAccess(recording, userId);
     if (!hasAccess) {
-      throw new ForbiddenException('You do not have access to this recording');
+      throw new ForbiddenException("You do not have access to this recording");
     }
 
     return this.sanitizeRecording(recording);
@@ -174,12 +176,12 @@ export class RecordingsService {
     });
 
     if (!recording) {
-      throw new NotFoundException('Recording not found');
+      throw new NotFoundException("Recording not found");
     }
 
     // Only host can update
     if (recording.hostId !== userId) {
-      throw new ForbiddenException('Only the recording owner can update it');
+      throw new ForbiddenException("Only the recording owner can update it");
     }
 
     const updated = await this.prisma.recording.update({
@@ -207,20 +209,20 @@ export class RecordingsService {
     });
 
     if (!recording) {
-      throw new NotFoundException('Recording not found');
+      throw new NotFoundException("Recording not found");
     }
 
     // Only host can delete
     if (recording.hostId !== userId) {
-      throw new ForbiddenException('Only the recording owner can delete it');
+      throw new ForbiddenException("Only the recording owner can delete it");
     }
 
     await this.prisma.recording.update({
       where: { id: recordingId },
-      data: { status: 'deleted' },
+      data: { status: "deleted" },
     });
 
-    return { message: 'Recording deleted successfully' };
+    return { message: "Recording deleted successfully" };
   }
 
   // Get recording by share token (for public/shared access)
@@ -241,11 +243,11 @@ export class RecordingsService {
     });
 
     if (!recording) {
-      throw new NotFoundException('Recording not found');
+      throw new NotFoundException("Recording not found");
     }
 
-    if (recording.status !== 'available') {
-      throw new ForbiddenException('Recording is not available');
+    if (recording.status !== "available") {
+      throw new ForbiddenException("Recording is not available");
     }
 
     return this.sanitizeRecording(recording);
@@ -258,12 +260,12 @@ export class RecordingsService {
     });
 
     if (!recording) {
-      throw new NotFoundException('Recording not found');
+      throw new NotFoundException("Recording not found");
     }
 
     if (recording.hostId !== userId) {
       throw new ForbiddenException(
-        'Only the recording owner can generate share links',
+        "Only the recording owner can generate share links",
       );
     }
 
@@ -278,7 +280,10 @@ export class RecordingsService {
   }
 
   // Helper: Check if user has access to recording
-  private async checkRecordingAccess(recording: any, userId: string): Promise<boolean> {
+  private async checkRecordingAccess(
+    recording: any,
+    userId: string,
+  ): Promise<boolean> {
     // User is the host
     if (recording.hostId === userId) {
       return true;
@@ -335,7 +340,7 @@ export class RecordingsService {
     });
 
     if (!member) {
-      throw new ForbiddenException('You are not a member of this workspace');
+      throw new ForbiddenException("You are not a member of this workspace");
     }
 
     return member;
@@ -357,8 +362,10 @@ export class RecordingsService {
 
   // Helper: Generate random token
   private generateRandomToken(): string {
-    return Math.random().toString(36).substring(2, 15) +
-      Math.random().toString(36).substring(2, 15);
+    return (
+      Math.random().toString(36).substring(2, 15) +
+      Math.random().toString(36).substring(2, 15)
+    );
   }
 
   // Helper: Sanitize recording (remove sensitive data)
@@ -369,7 +376,8 @@ export class RecordingsService {
       ...safe,
       // Add a clear indicator that playback is not available
       playbackAvailable: false,
-      limitations: 'Recording storage and playback infrastructure not implemented',
+      limitations:
+        "Recording storage and playback infrastructure not implemented",
     };
   }
 }

@@ -3,13 +3,13 @@ import {
   NotFoundException,
   ForbiddenException,
   BadRequestException,
-} from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
-import { CreateConversationDto } from './dto/create-conversation.dto';
-import { SendMessageDto } from './dto/send-message.dto';
-import { AddParticipantsDto } from './dto/add-participants.dto';
-import { UpdateConversationDto } from './dto/update-conversation.dto';
-import { UpdateParticipantDto } from './dto/update-participant.dto';
+} from "@nestjs/common";
+import { PrismaService } from "../prisma/prisma.service";
+import { CreateConversationDto } from "./dto/create-conversation.dto";
+import { SendMessageDto } from "./dto/send-message.dto";
+import { AddParticipantsDto } from "./dto/add-participants.dto";
+import { UpdateConversationDto } from "./dto/update-conversation.dto";
+import { UpdateParticipantDto } from "./dto/update-participant.dto";
 
 @Injectable()
 export class MessagesService {
@@ -28,7 +28,7 @@ export class MessagesService {
       await this.validateWorkspaceMembership(workspaceId, userId);
 
       // For workspace channels, validate participants are workspace members
-      if (type === 'channel') {
+      if (type === "channel") {
         for (const participantId of participantIds) {
           await this.validateWorkspaceMembership(workspaceId, participantId);
         }
@@ -36,14 +36,14 @@ export class MessagesService {
     }
 
     // Validate direct conversations have exactly 2 participants (creator + 1 other)
-    if (type === 'direct' && participantIds.length !== 1) {
+    if (type === "direct" && participantIds.length !== 1) {
       throw new BadRequestException(
-        'Direct conversations must have exactly one other participant',
+        "Direct conversations must have exactly one other participant",
       );
     }
 
     // Check if direct conversation already exists
-    if (type === 'direct') {
+    if (type === "direct") {
       const existingConversation = await this.findExistingDirectConversation(
         userId,
         participantIds[0],
@@ -67,12 +67,12 @@ export class MessagesService {
             // Add creator
             {
               userId,
-              role: type === 'channel' ? 'admin' : 'member',
+              role: type === "channel" ? "admin" : "member",
             },
             // Add other participants
             ...participantIds.map((participantId) => ({
               userId: participantId,
-              role: 'member',
+              role: "member",
             })),
           ],
         },
@@ -86,7 +86,7 @@ export class MessagesService {
         },
         messages: {
           take: 1,
-          orderBy: { createdAt: 'desc' },
+          orderBy: { createdAt: "desc" },
           include: {
             sender: this.getUserSelect(),
           },
@@ -131,7 +131,7 @@ export class MessagesService {
         },
         messages: {
           take: 1,
-          orderBy: { createdAt: 'desc' },
+          orderBy: { createdAt: "desc" },
           where: { isDeleted: false },
           include: {
             sender: this.getUserSelect(),
@@ -144,7 +144,7 @@ export class MessagesService {
         },
       },
       orderBy: {
-        lastMessageAt: 'desc',
+        lastMessageAt: "desc",
       },
     });
 
@@ -165,7 +165,7 @@ export class MessagesService {
         },
         messages: {
           take: 1,
-          orderBy: { createdAt: 'desc' },
+          orderBy: { createdAt: "desc" },
           where: { isDeleted: false },
           include: {
             sender: this.getUserSelect(),
@@ -180,7 +180,7 @@ export class MessagesService {
     });
 
     if (!conversation) {
-      throw new NotFoundException('Conversation not found');
+      throw new NotFoundException("Conversation not found");
     }
 
     // Check if user is a participant
@@ -205,24 +205,24 @@ export class MessagesService {
     });
 
     if (!conversation) {
-      throw new NotFoundException('Conversation not found');
+      throw new NotFoundException("Conversation not found");
     }
 
     const participant = conversation.participants[0];
     if (!participant) {
-      throw new ForbiddenException('You are not a member of this conversation');
+      throw new ForbiddenException("You are not a member of this conversation");
     }
 
     // Only admins can update channels
-    if (conversation.type === 'channel' && participant.role !== 'admin') {
+    if (conversation.type === "channel" && participant.role !== "admin") {
       throw new ForbiddenException(
-        'Only channel admins can update this conversation',
+        "Only channel admins can update this conversation",
       );
     }
 
     // Cannot update direct conversations
-    if (conversation.type === 'direct') {
-      throw new BadRequestException('Cannot update direct conversations');
+    if (conversation.type === "direct") {
+      throw new BadRequestException("Cannot update direct conversations");
     }
 
     const updated = await this.prisma.conversation.update({
@@ -263,24 +263,24 @@ export class MessagesService {
     });
 
     if (!conversation) {
-      throw new NotFoundException('Conversation not found');
+      throw new NotFoundException("Conversation not found");
     }
 
     const participant = conversation.participants[0];
     if (!participant) {
-      throw new ForbiddenException('You are not a member of this conversation');
+      throw new ForbiddenException("You are not a member of this conversation");
     }
 
     // Only admins can add participants to channels
-    if (conversation.type === 'channel' && participant.role !== 'admin') {
-      throw new ForbiddenException(
-        'Only channel admins can add participants',
-      );
+    if (conversation.type === "channel" && participant.role !== "admin") {
+      throw new ForbiddenException("Only channel admins can add participants");
     }
 
     // Cannot add participants to direct conversations
-    if (conversation.type === 'direct') {
-      throw new BadRequestException('Cannot add participants to direct conversations');
+    if (conversation.type === "direct") {
+      throw new BadRequestException(
+        "Cannot add participants to direct conversations",
+      );
     }
 
     // Validate workspace membership if conversation is in a workspace
@@ -294,14 +294,15 @@ export class MessagesService {
     }
 
     // Add participants
-    const newParticipants = await this.prisma.conversationParticipant.createMany({
-      data: addParticipantsDto.userIds.map((participantUserId) => ({
-        conversationId,
-        userId: participantUserId,
-        role: 'member',
-      })),
-      skipDuplicates: true,
-    });
+    const newParticipants =
+      await this.prisma.conversationParticipant.createMany({
+        data: addParticipantsDto.userIds.map((participantUserId) => ({
+          conversationId,
+          userId: participantUserId,
+          role: "member",
+        })),
+        skipDuplicates: true,
+      });
 
     return this.findOneConversation(conversationId, userId);
   }
@@ -322,7 +323,7 @@ export class MessagesService {
     });
 
     if (!participant || participant.leftAt) {
-      throw new ForbiddenException('You are not a member of this conversation');
+      throw new ForbiddenException("You are not a member of this conversation");
     }
 
     await this.prisma.conversationParticipant.update({
@@ -330,7 +331,7 @@ export class MessagesService {
       data: updateParticipantDto,
     });
 
-    return { message: 'Participant settings updated' };
+    return { message: "Participant settings updated" };
   }
 
   // Leave a conversation
@@ -345,7 +346,7 @@ export class MessagesService {
     });
 
     if (!participant || participant.leftAt) {
-      throw new ForbiddenException('You are not a member of this conversation');
+      throw new ForbiddenException("You are not a member of this conversation");
     }
 
     await this.prisma.conversationParticipant.update({
@@ -353,7 +354,7 @@ export class MessagesService {
       data: { leftAt: new Date() },
     });
 
-    return { message: 'Left conversation' };
+    return { message: "Left conversation" };
   }
 
   // Get messages in a conversation
@@ -378,7 +379,7 @@ export class MessagesService {
     const messages = await this.prisma.message.findMany({
       where,
       take: limit,
-      orderBy: { createdAt: 'desc' },
+      orderBy: { createdAt: "desc" },
       include: {
         sender: this.getUserSelect(),
         parentMessage: {
@@ -419,7 +420,7 @@ export class MessagesService {
       });
 
       if (!parentMessage) {
-        throw new BadRequestException('Parent message not found');
+        throw new BadRequestException("Parent message not found");
       }
     }
 
@@ -429,7 +430,7 @@ export class MessagesService {
         conversationId,
         senderId: userId,
         content: sendMessageDto.content,
-        type: sendMessageDto.type || 'text',
+        type: sendMessageDto.type || "text",
         parentMessageId: sendMessageDto.parentMessageId,
         metadata: sendMessageDto.metadata,
       },
@@ -464,15 +465,15 @@ export class MessagesService {
     });
 
     if (!message) {
-      throw new NotFoundException('Message not found');
+      throw new NotFoundException("Message not found");
     }
 
     if (message.senderId !== userId) {
-      throw new ForbiddenException('You can only edit your own messages');
+      throw new ForbiddenException("You can only edit your own messages");
     }
 
     if (message.isDeleted) {
-      throw new BadRequestException('Cannot edit deleted messages');
+      throw new BadRequestException("Cannot edit deleted messages");
     }
 
     return this.prisma.message.update({
@@ -505,11 +506,11 @@ export class MessagesService {
     });
 
     if (!message) {
-      throw new NotFoundException('Message not found');
+      throw new NotFoundException("Message not found");
     }
 
     if (message.senderId !== userId) {
-      throw new ForbiddenException('You can only delete your own messages');
+      throw new ForbiddenException("You can only delete your own messages");
     }
 
     await this.prisma.message.update({
@@ -520,7 +521,7 @@ export class MessagesService {
       },
     });
 
-    return { message: 'Message deleted' };
+    return { message: "Message deleted" };
   }
 
   // Helper: Validate workspace membership
@@ -538,7 +539,7 @@ export class MessagesService {
     });
 
     if (!member) {
-      throw new ForbiddenException('You are not a member of this workspace');
+      throw new ForbiddenException("You are not a member of this workspace");
     }
 
     return member;
@@ -559,7 +560,9 @@ export class MessagesService {
     });
 
     if (!participant || participant.leftAt) {
-      throw new ForbiddenException('You do not have access to this conversation');
+      throw new ForbiddenException(
+        "You do not have access to this conversation",
+      );
     }
 
     return participant;
@@ -572,7 +575,7 @@ export class MessagesService {
   ) {
     const conversations = await this.prisma.conversation.findMany({
       where: {
-        type: 'direct',
+        type: "direct",
         participants: {
           every: {
             userId: {
@@ -646,7 +649,7 @@ export class MessagesService {
     let displayName = conversation.name;
     let displayImage = null;
 
-    if (conversation.type === 'direct') {
+    if (conversation.type === "direct") {
       const otherParticipant = conversation.participants.find(
         (p: any) => p.userId !== userId,
       );

@@ -1,4 +1,4 @@
-import { IsEmail, IsString, IsIn, IsNotEmpty } from 'class-validator';
+import { IsEmail, IsString, IsIn, IsNotEmpty } from "class-validator";
 
 export class InviteMemberDto {
   @IsEmail()
@@ -6,6 +6,6 @@ export class InviteMemberDto {
   email: string;
 
   @IsString()
-  @IsIn(['admin', 'member', 'guest'])
+  @IsIn(["admin", "member", "guest"])
   role: string;
 }
