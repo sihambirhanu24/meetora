@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsDateString, IsEnum } from 'class-validator';
+import { IsString, IsOptional, IsDateString, IsEnum } from "class-validator";
 
 export class UpdateMeetingDto {
   @IsString()
@@ -25,7 +25,7 @@ export class UpdateMeetingDto {
   @IsOptional()
   meetingLink?: string;
 
-  @IsEnum(['scheduled', 'in_progress', 'completed', 'cancelled'])
+  @IsEnum(["scheduled", "in_progress", "completed", "cancelled"])
   @IsOptional()
   status?: string;
 }

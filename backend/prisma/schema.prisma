@@ -36,6 +36,8 @@ model User {
   // Meeting relations
   hostedMeetings      Meeting[]            @relation("MeetingHost")
   meetingParticipants MeetingParticipant[]
+  meetingMessages     MeetingMessage[]
+  meetingReactions    MeetingReaction[]
 
   // Workspace relations
   ownedWorkspaces       Workspace[]          @relation("WorkspaceOwner")
@@ -47,6 +49,9 @@ model User {
   createdConversations     Conversation[]            @relation("ConversationCreator")
   conversationParticipants ConversationParticipant[]
   messages                 Message[]
+
+  // Notifications
+  notifications Notification[] @relation("UserNotifications")
 
   @@map("users")
 }
@@ -69,6 +74,8 @@ model Meeting {
 
   participants MeetingParticipant[]
   recordings   Recording[]
+  messages     MeetingMessage[]
+  reactions    MeetingReaction[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -129,6 +136,11 @@ model MeetingParticipant {
 
   status String @default("invited") // invited, accepted, declined, tentative
   role   String @default("participant") // participant, co-host
+
+  // Real-time status fields
+  isHandRaised Boolean @default(false)
+  isMuted      Boolean @default(true)
+  isCameraOff  Boolean @default(true)
 
   joinedAt DateTime?
   leftAt   DateTime?
@@ -313,4 +325,78 @@ model Message {
   @@index([parentMessageId])
   @@index([createdAt])
   @@map("messages")
+}
+
+model Notification {
+  id String @id @default(uuid())
+
+  userId String
+  user   User   @relation("UserNotifications", fields: [userId], references: [id], onDelete: Cascade)
+
+  type String // meeting_invitation, workspace_invitation, meeting_starting, meeting_reminder, message_mention, etc.
+  
+  title   String
+  message String
+  
+  // Related entities (optional)
+  relatedEntityType String? // meeting, workspace, message, user
+  relatedEntityId   String? // ID of the related entity
+  
+  // Action URL (where to redirect when clicked)
+  actionUrl String?
+  
+  // Metadata for additional data
+  metadata Json?
+  
+  // Status
+  isRead Boolean @default(false)
+  readAt DateTime?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([isRead])
+  @@index([createdAt])
+  @@index([type])
+  @@map("notifications")
+}
+
+model MeetingMessage {
+  id String @id @default(uuid())
+
+  meetingId String
+  meeting   Meeting @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  message String
+  type    String @default("text") // text, system
+
+  createdAt DateTime @default(now())
+
+  @@index([meetingId])
+  @@index([userId])
+  @@index([createdAt])
+  @@map("meeting_messages")
+}
+
+model MeetingReaction {
+  id String @id @default(uuid())
+
+  meetingId String
+  meeting   Meeting @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  emoji String
+
+  createdAt DateTime @default(now())
+
+  @@index([meetingId])
+  @@index([userId])
+  @@index([createdAt])
+  @@map("meeting_reactions")
 }

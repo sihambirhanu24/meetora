@@ -23,6 +23,7 @@ export default function MeetingsPage() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [dateFilter, setDateFilter] = useState('all');
   const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
+  const [isInstantMeeting, setIsInstantMeeting] = useState(false);
 
   const { data: upcomingMeetings, isLoading: isLoadingUpcoming } = useUpcomingMeetings();
   const { data: pendingInvites, isLoading: isLoadingPending } = usePendingInvites();
@@ -78,7 +79,7 @@ export default function MeetingsPage() {
   });
 
   const handleStartInstantCall = () => {
-    // For now, open schedule modal with instant meeting type
+    setIsInstantMeeting(true);
     setIsScheduleModalOpen(true);
   };
 
@@ -194,7 +195,11 @@ export default function MeetingsPage() {
       {/* Schedule Meeting Modal */}
       <MeetingFormModal
         isOpen={isScheduleModalOpen}
-        onClose={() => setIsScheduleModalOpen(false)}
+        onClose={() => {
+          setIsScheduleModalOpen(false);
+          setIsInstantMeeting(false);
+        }}
+        defaultInstant={isInstantMeeting}
       />
     </div>
   );

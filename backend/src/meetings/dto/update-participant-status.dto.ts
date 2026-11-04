@@ -1,7 +1,7 @@
-import { IsEnum, IsNotEmpty } from 'class-validator';
+import { IsEnum, IsNotEmpty } from "class-validator";
 
 export class UpdateParticipantStatusDto {
-  @IsEnum(['accepted', 'declined', 'tentative'])
+  @IsEnum(["accepted", "declined", "tentative"])
   @IsNotEmpty()
   status: string;
 }

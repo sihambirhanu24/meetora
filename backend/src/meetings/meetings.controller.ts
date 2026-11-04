@@ -9,14 +9,14 @@ import {
   UseGuards,
   Request,
   Query,
-} from '@nestjs/common';
-import { MeetingsService } from './meetings.service';
-import { CreateMeetingDto } from './dto/create-meeting.dto';
-import { UpdateMeetingDto } from './dto/update-meeting.dto';
-import { UpdateParticipantStatusDto } from './dto/update-participant-status.dto';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+} from "@nestjs/common";
+import { MeetingsService } from "./meetings.service";
+import { CreateMeetingDto } from "./dto/create-meeting.dto";
+import { UpdateMeetingDto } from "./dto/update-meeting.dto";
+import { UpdateParticipantStatusDto } from "./dto/update-participant-status.dto";
+import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 
-@Controller('meetings')
+@Controller("meetings")
 @UseGuards(JwtAuthGuard)
 export class MeetingsController {
   constructor(private readonly meetingsService: MeetingsService) {}
@@ -31,50 +31,50 @@ export class MeetingsController {
     return this.meetingsService.findAll(req.user.id, query);
   }
 
-  @Get('upcoming')
+  @Get("upcoming")
   findUpcoming(@Request() req) {
     return this.meetingsService.findUpcoming(req.user.id);
   }
 
-  @Get('pending-invites')
+  @Get("pending-invites")
   findPendingInvites(@Request() req) {
     return this.meetingsService.findPendingInvites(req.user.id);
   }
 
-  @Get('previous')
+  @Get("previous")
   findPrevious(@Request() req) {
     return this.meetingsService.findPrevious(req.user.id);
   }
 
-  @Get('today-count')
+  @Get("today-count")
   async getTodayCount(@Request() req) {
     const count = await this.meetingsService.findTodayCount(req.user.id);
     return { count };
   }
 
-  @Get(':id')
-  findOne(@Request() req, @Param('id') id: string) {
+  @Get(":id")
+  findOne(@Request() req, @Param("id") id: string) {
     return this.meetingsService.findOne(id, req.user.id);
   }
 
-  @Patch(':id')
+  @Patch(":id")
   update(
     @Request() req,
-    @Param('id') id: string,
+    @Param("id") id: string,
     @Body() updateMeetingDto: UpdateMeetingDto,
   ) {
     return this.meetingsService.update(id, req.user.id, updateMeetingDto);
   }
 
-  @Patch(':id/cancel')
-  cancel(@Request() req, @Param('id') id: string) {
+  @Patch(":id/cancel")
+  cancel(@Request() req, @Param("id") id: string) {
     return this.meetingsService.cancel(id, req.user.id);
   }
 
-  @Patch(':id/status')
+  @Patch(":id/status")
   updateParticipantStatus(
     @Request() req,
-    @Param('id') id: string,
+    @Param("id") id: string,
     @Body() updateStatusDto: UpdateParticipantStatusDto,
   ) {
     return this.meetingsService.updateParticipantStatus(
@@ -82,5 +82,15 @@ export class MeetingsController {
       req.user.id,
       updateStatusDto,
     );
+  }
+
+  @Get(":id/messages")
+  getMessages(@Request() req, @Param("id") id: string) {
+    return this.meetingsService.getMessages(id, req.user.id);
+  }
+
+  @Get(":id/participants-status")
+  getParticipantsStatus(@Request() req, @Param("id") id: string) {
+    return this.meetingsService.getParticipantsStatus(id, req.user.id);
   }
 }

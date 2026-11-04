@@ -1,0 +1,502 @@
+'use client';
+
+import { useEffect, useState, useRef } from 'react';
+import { useParams, useSearchParams, useRouter } from 'next/navigation';
+import { useMeeting } from '@/features/meetings/hooks/use-meetings';
+import { useAuth } from '@/features/auth/hooks/use-auth';
+
+const VideoIcon = ({ className = "w-6 h-6" }: { className?: string }) => (
+  <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+  </svg>
+);
+
+const VideoOffIcon = ({ className = "w-6 h-6" }: { className?: string }) => (
+  <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+  </svg>
+);
+
+const MicIcon = ({ className = "w-6 h-6" }: { className?: string }) => (
+  <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+  </svg>
+);
+
+const MicOffIcon = ({ className = "w-6 h-6" }: { className?: string }) => (
+  <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
+  </svg>
+);
+
+const UsersIcon = ({ className = "w-6 h-6" }: { className?: string }) => (
+  <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+  </svg>
+);
+
+const ShareIcon = ({ className = "w-6 h-6" }: { className?: string }) => (
+  <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+  </svg>
+);
+
+const PhoneIcon = ({ className = "w-6 h-6" }: { className?: string }) => (
+  <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 8l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2M5 3a2 2 0 00-2 2v1c0 8.284 6.716 15 15 15h1a2 2 0 002-2v-3.28a1 1 0 00-.684-.948l-4.493-1.498a1 1 0 00-1.21.502l-1.13 2.257a11.042 11.042 0 01-5.516-5.517l2.257-1.128a1 1 0 00.502-1.21L9.228 3.683A1 1 0 008.279 3H5z" />
+  </svg>
+);
+
+const ChatIcon = ({ className = "w-6 h-6" }: { className?: string }) => (
+  <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+  </svg>
+);
+
+const SendIcon = ({ className = "w-5 h-5" }: { className?: string }) => (
+  <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+  </svg>
+);
+
+interface ChatMessage {
+  id: string;
+  userId: string;
+  userName: string;
+  message: string;
+  timestamp: Date;
+}
+
+export default function MeetingRoomPage() {
+  const params = useParams();
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const { user } = useAuth();
+  
+  const meetingId = params.id as string;
+  const { data: meeting, isLoading, error } = useMeeting(meetingId);
+
+  // Get preferences from URL
+  const initialCamera = searchParams.get('camera') === 'true';
+  const initialMicrophone = searchParams.get('microphone') === 'true';
+
+  const [isCameraOn, setIsCameraOn] = useState(initialCamera);
+  const [isMicrophoneOn, setIsMicrophoneOn] = useState(initialMicrophone);
+  const [showParticipants, setShowParticipants] = useState(false);
+  const [showChat, setShowChat] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [newMessage, setNewMessage] = useState('');
+  const chatEndRef = useRef<HTMLDivElement>(null);
+
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  // Initialize local camera feed
+  useEffect(() => {
+    let stream: MediaStream | null = null;
+
+    const initializeMedia = async () => {
+      if (isCameraOn && videoRef.current) {
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: true,
+            audio: isMicrophoneOn,
+          });
+          if (videoRef.current) {
+            videoRef.current.srcObject = stream;
+          }
+        } catch (err) {
+          console.error('Error accessing media devices:', err);
+          alert('Unable to access camera/microphone. Please check permissions.');
+        }
+      }
+    };
+
+    initializeMedia();
+
+    return () => {
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+      }
+    };
+  }, [isCameraOn, isMicrophoneOn]);
+
+  const toggleCamera = () => {
+    setIsCameraOn(prev => !prev);
+    if (videoRef.current?.srcObject) {
+      const stream = videoRef.current.srcObject as MediaStream;
+      stream.getVideoTracks().forEach(track => {
+        track.enabled = !isCameraOn;
+      });
+    }
+  };
+
+  const toggleMicrophone = () => {
+    setIsMicrophoneOn(prev => !prev);
+    if (videoRef.current?.srcObject) {
+      const stream = videoRef.current.srcObject as MediaStream;
+      stream.getAudioTracks().forEach(track => {
+        track.enabled = !isMicrophoneOn;
+      });
+    }
+  };
+
+  const copyMeetingLink = () => {
+    if (meeting?.meetingLink) {
+      navigator.clipboard.writeText(`https://${meeting.meetingLink}`);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  const leaveMeeting = () => {
+    // Stop all media tracks
+    if (videoRef.current?.srcObject) {
+      const stream = videoRef.current.srcObject as MediaStream;
+      stream.getTracks().forEach(track => track.stop());
+    }
+    router.push('/dashboard');
+  };
+
+  const sendMessage = () => {
+    if (!newMessage.trim() || !user) return;
+
+    const message: ChatMessage = {
+      id: Date.now().toString(),
+      userId: user.id,
+      userName: `${user.firstName} ${user.lastName}`,
+      message: newMessage.trim(),
+      timestamp: new Date(),
+    };
+
+    setChatMessages(prev => [...prev, message]);
+    setNewMessage('');
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
+  };
+
+  // Auto scroll to bottom when new messages arrive
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [chatMessages]);
+    if (videoRef.current?.srcObject) {
+      const stream = videoRef.current.srcObject as MediaStream;
+      stream.getTracks().forEach(track => track.stop());
+    }
+    router.push('/dashboard');
+  };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+        <div className="text-white text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
+          <p className="text-lg">Joining meeting...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !meeting) {
+    return (
+      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+        <div className="text-white text-center max-w-md">
+          <h2 className="text-2xl font-bold mb-2">Meeting not found</h2>
+          <p className="text-gray-400 mb-6">This meeting may have ended or the link is invalid.</p>
+          <button
+            onClick={() => router.push('/dashboard')}
+            className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            Return to Dashboard
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const isHost = meeting.host.id === user?.id;
+  const participants = meeting.participants || [];
+
+  return (
+    <div className="min-h-screen bg-gray-900 flex flex-col">
+      {/* Header */}
+      <div className="bg-gray-800 border-b border-gray-700 px-6 py-3">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-white font-semibold text-lg">{meeting.title}</h1>
+            <p className="text-gray-400 text-sm">
+              {new Date(meeting.startTime).toLocaleTimeString()} - {new Date(meeting.endTime).toLocaleTimeString()}
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={copyMeetingLink}
+              className="px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors flex items-center gap-2"
+            >
+              <ShareIcon className="w-4 h-4" />
+              {copied ? 'Copied!' : 'Copy Link'}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <div className="flex-1 flex">
+        {/* Video Grid */}
+        <div className="flex-1 p-6">
+          <div className="h-full grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {/* Local Video */}
+            <div className="relative bg-gray-800 rounded-xl overflow-hidden aspect-video">
+              {isCameraOn ? (
+                <video
+                  ref={videoRef}
+                  autoPlay
+                  playsInline
+                  muted
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-800 to-gray-900">
+                  <div className="text-center">
+                    <div className="w-24 h-24 rounded-full bg-blue-600 flex items-center justify-center text-white text-3xl font-bold mb-3 mx-auto">
+                      {user?.firstName?.[0]}{user?.lastName?.[0]}
+                    </div>
+                    <p className="text-white font-medium">{user?.firstName} {user?.lastName} (You)</p>
+                  </div>
+                </div>
+              )}
+              <div className="absolute bottom-4 left-4 bg-gray-900 bg-opacity-80 px-3 py-1 rounded-lg">
+                <p className="text-white text-sm font-medium">{user?.firstName} {user?.lastName} (You)</p>
+              </div>
+              {!isMicrophoneOn && (
+                <div className="absolute top-4 right-4 bg-red-600 p-2 rounded-lg">
+                  <MicOffIcon className="w-5 h-5 text-white" />
+                </div>
+              )}
+            </div>
+
+            {/* Placeholder for other participants */}
+            <div className="relative bg-gray-800 rounded-xl overflow-hidden aspect-video flex items-center justify-center">
+              <div className="text-center text-gray-400">
+                <UsersIcon className="w-16 h-16 mx-auto mb-3 opacity-50" />
+                <p className="text-sm">Waiting for others to join...</p>
+                <p className="text-xs mt-2 text-gray-500">
+                  Note: Live video requires a WebRTC provider configuration
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Chat Sidebar */}
+        {showChat && (
+          <div className="w-96 bg-gray-800 border-l border-gray-700 flex flex-col">
+            {/* Chat Header */}
+            <div className="p-4 border-b border-gray-700 flex items-center justify-between">
+              <h3 className="text-white font-semibold flex items-center gap-2">
+                <ChatIcon className="w-5 h-5" />
+                Meeting Chat
+              </h3>
+              <button
+                onClick={() => setShowChat(false)}
+                className="text-gray-400 hover:text-white transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Chat Messages */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-3">
+              {chatMessages.length === 0 ? (
+                <div className="text-center text-gray-400 py-8">
+                  <ChatIcon className="w-12 h-12 mx-auto mb-2 opacity-30" />
+                  <p className="text-sm">No messages yet</p>
+                  <p className="text-xs mt-1">Send a message to start the conversation</p>
+                </div>
+              ) : (
+                chatMessages.map((msg) => (
+                  <div
+                    key={msg.id}
+                    className={`flex flex-col ${
+                      msg.userId === user?.id ? 'items-end' : 'items-start'
+                    }`}
+                  >
+                    <div className={`max-w-[80%] rounded-lg p-3 ${
+                      msg.userId === user?.id
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-gray-700 text-white'
+                    }`}>
+                      {msg.userId !== user?.id && (
+                        <p className="text-xs font-semibold mb-1 opacity-75">{msg.userName}</p>
+                      )}
+                      <p className="text-sm whitespace-pre-wrap break-words">{msg.message}</p>
+                      <p className="text-xs opacity-70 mt-1">
+                        {new Date(msg.timestamp).toLocaleTimeString([], {
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })}
+                      </p>
+                    </div>
+                  </div>
+                ))
+              )}
+              <div ref={chatEndRef} />
+            </div>
+
+            {/* Chat Input */}
+            <div className="p-4 border-t border-gray-700">
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={newMessage}
+                  onChange={(e) => setNewMessage(e.target.value)}
+                  onKeyPress={handleKeyPress}
+                  placeholder="Type a message..."
+                  className="flex-1 bg-gray-700 text-white px-4 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-gray-400"
+                />
+                <button
+                  onClick={sendMessage}
+                  disabled={!newMessage.trim()}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Send message"
+                >
+                  <SendIcon />
+                </button>
+              </div>
+              <p className="text-xs text-gray-400 mt-2">
+                Press Enter to send, Shift+Enter for new line
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Participants Sidebar */}
+        {showParticipants && (
+          <div className="w-80 bg-gray-800 border-l border-gray-700 p-4">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-white font-semibold flex items-center gap-2">
+                <UsersIcon className="w-5 h-5" />
+                Participants ({participants.length + 1})
+              </h3>
+              <button
+                onClick={() => setShowParticipants(false)}
+                className="text-gray-400 hover:text-white"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="space-y-2">
+              {/* Host */}
+              <div className="flex items-center gap-3 p-3 bg-gray-700 rounded-lg">
+                <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center text-white font-semibold">
+                  {meeting.host.firstName?.[0]}{meeting.host.lastName?.[0]}
+                </div>
+                <div className="flex-1">
+                  <p className="text-white text-sm font-medium">
+                    {meeting.host.firstName} {meeting.host.lastName}
+                    {isHost && ' (You)'}
+                  </p>
+                  <p className="text-gray-400 text-xs">Host</p>
+                </div>
+              </div>
+
+              {/* Other Participants */}
+              {participants.map((participant: any) => (
+                <div key={participant.id} className="flex items-center gap-3 p-3 bg-gray-700 rounded-lg">
+                  <div className="w-10 h-10 rounded-full bg-gray-600 flex items-center justify-center text-white font-semibold">
+                    {participant.user.firstName?.[0]}{participant.user.lastName?.[0]}
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-white text-sm font-medium">
+                      {participant.user.firstName} {participant.user.lastName}
+                    </p>
+                    <p className="text-gray-400 text-xs capitalize">{participant.status}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Controls */}
+      <div className="bg-gray-800 border-t border-gray-700 px-6 py-4">
+        <div className="flex items-center justify-center gap-4">
+          {/* Microphone */}
+          <button
+            onClick={toggleMicrophone}
+            className={`p-4 rounded-full transition-colors ${
+              isMicrophoneOn
+                ? 'bg-gray-700 hover:bg-gray-600 text-white'
+                : 'bg-red-600 hover:bg-red-700 text-white'
+            }`}
+            title={isMicrophoneOn ? 'Mute microphone' : 'Unmute microphone'}
+          >
+            {isMicrophoneOn ? <MicIcon /> : <MicOffIcon />}
+          </button>
+
+          {/* Camera */}
+          <button
+            onClick={toggleCamera}
+            className={`p-4 rounded-full transition-colors ${
+              isCameraOn
+                ? 'bg-gray-700 hover:bg-gray-600 text-white'
+                : 'bg-red-600 hover:bg-red-700 text-white'
+            }`}
+            title={isCameraOn ? 'Turn off camera' : 'Turn on camera'}
+          >
+            {isCameraOn ? <VideoIcon /> : <VideoOffIcon />}
+          </button>
+
+          {/* Participants */}
+          <button
+            onClick={() => {
+              setShowParticipants(!showParticipants);
+              setShowChat(false);
+            }}
+            className={`p-4 rounded-full transition-colors ${
+              showParticipants ? 'bg-blue-600' : 'bg-gray-700 hover:bg-gray-600'
+            } text-white`}
+            title="Toggle participants"
+          >
+            <UsersIcon />
+          </button>
+
+          {/* Chat */}
+          <button
+            onClick={() => {
+              setShowChat(!showChat);
+              setShowParticipants(false);
+            }}
+            className={`p-4 rounded-full transition-colors ${
+              showChat ? 'bg-blue-600' : 'bg-gray-700 hover:bg-gray-600'
+            } text-white relative`}
+            title="Toggle chat"
+          >
+            <ChatIcon />
+            {chatMessages.length > 0 && !showChat && (
+              <span className="absolute -top-1 -right-1 bg-red-600 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center">
+                {chatMessages.length}
+              </span>
+            )}
+          </button>
+
+          {/* Leave Meeting */}
+          <button
+            onClick={leaveMeeting}
+            className="p-4 rounded-full bg-red-600 hover:bg-red-700 text-white transition-colors ml-4"
+            title="Leave meeting"
+          >
+            <PhoneIcon />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}

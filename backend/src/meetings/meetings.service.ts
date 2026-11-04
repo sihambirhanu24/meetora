@@ -1,15 +1,22 @@
-import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
-import { EmailService } from '../email/email.service';
-import { CreateMeetingDto } from './dto/create-meeting.dto';
-import { UpdateMeetingDto } from './dto/update-meeting.dto';
-import { UpdateParticipantStatusDto } from './dto/update-participant-status.dto';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+  BadRequestException,
+} from "@nestjs/common";
+import { PrismaService } from "../prisma/prisma.service";
+import { EmailService } from "../email/email.service";
+import { NotificationsService } from "../notifications/notifications.service";
+import { CreateMeetingDto } from "./dto/create-meeting.dto";
+import { UpdateMeetingDto } from "./dto/update-meeting.dto";
+import { UpdateParticipantStatusDto } from "./dto/update-participant-status.dto";
 
 @Injectable()
 export class MeetingsService {
   constructor(
     private prisma: PrismaService,
     private emailService: EmailService,
+    private notificationsService: NotificationsService,
   ) {}
 
   async create(userId: string, createMeetingDto: CreateMeetingDto) {
@@ -18,9 +25,9 @@ export class MeetingsService {
     // Validate that endTime is after startTime
     const startTime = new Date(createMeetingDto.startTime);
     const endTime = new Date(createMeetingDto.endTime);
-    
+
     if (endTime <= startTime) {
-      throw new BadRequestException('End time must be after start time');
+      throw new BadRequestException("End time must be after start time");
     }
 
     // Get host information for email
@@ -40,10 +47,12 @@ export class MeetingsService {
         ...meetingData,
         startTime: new Date(createMeetingDto.startTime),
         endTime: new Date(createMeetingDto.endTime),
-        timezone: createMeetingDto.timezone || 'UTC',
-        meetingType: createMeetingDto.meetingType || 'scheduled',
+        timezone: createMeetingDto.timezone || "UTC",
+        meetingType: createMeetingDto.meetingType || "scheduled",
         hostId: userId,
-        meetingLink: createMeetingDto.meetingLink || `meetora.app/join/${Math.random().toString(36).substring(7)}`,
+        meetingLink:
+          createMeetingDto.meetingLink ||
+          `meetora.app/join/${Math.random().toString(36).substring(7)}`,
       },
       include: {
         host: {
@@ -87,13 +96,13 @@ export class MeetingsService {
           data: users.map((user) => ({
             meetingId: meeting.id,
             userId: user.id,
-            status: 'invited',
+            status: "invited",
           })),
         });
 
         // Send email invitations to each participant
         const hostName = `${host.firstName} ${host.lastName}`;
-        
+
         for (const user of users) {
           try {
             await this.emailService.sendMeetingInvitation(user.email, {
@@ -106,7 +115,10 @@ export class MeetingsService {
             });
           } catch (error) {
             // Log email error but don't fail the meeting creation
-            console.error(`Failed to send invitation email to ${user.email}:`, error);
+            console.error(
+              `Failed to send invitation email to ${user.email}:`,
+              error,
+            );
           }
         }
       }
@@ -164,7 +176,7 @@ export class MeetingsService {
         },
       },
       orderBy: {
-        startTime: 'asc',
+        startTime: "asc",
       },
     });
 
@@ -173,7 +185,7 @@ export class MeetingsService {
 
   async findUpcoming(userId: string) {
     const now = new Date();
-    
+
     return this.prisma.meeting.findMany({
       where: {
         AND: [
@@ -196,7 +208,7 @@ export class MeetingsService {
           },
           {
             status: {
-              in: ['scheduled', 'in_progress'],
+              in: ["scheduled", "in_progress"],
             },
           },
         ],
@@ -226,7 +238,7 @@ export class MeetingsService {
         },
       },
       orderBy: {
-        startTime: 'asc',
+        startTime: "asc",
       },
     });
   }
@@ -235,7 +247,7 @@ export class MeetingsService {
     return this.prisma.meetingParticipant.findMany({
       where: {
         userId: userId,
-        status: 'invited',
+        status: "invited",
       },
       include: {
         meeting: {
@@ -266,14 +278,14 @@ export class MeetingsService {
         },
       },
       orderBy: {
-        createdAt: 'desc',
+        createdAt: "desc",
       },
     });
   }
 
   async findPrevious(userId: string) {
     const now = new Date();
-    
+
     return this.prisma.meeting.findMany({
       where: {
         AND: [
@@ -297,7 +309,7 @@ export class MeetingsService {
                 },
               },
               {
-                status: 'completed',
+                status: "completed",
               },
             ],
           },
@@ -328,7 +340,7 @@ export class MeetingsService {
         },
       },
       orderBy: {
-        startTime: 'desc',
+        startTime: "desc",
       },
     });
   }
@@ -336,7 +348,7 @@ export class MeetingsService {
   async findTodayCount(userId: string) {
     const startOfDay = new Date();
     startOfDay.setHours(0, 0, 0, 0);
-    
+
     const endOfDay = new Date();
     endOfDay.setHours(23, 59, 59, 999);
 
@@ -363,7 +375,7 @@ export class MeetingsService {
           },
           {
             status: {
-              in: ['scheduled', 'in_progress'],
+              in: ["scheduled", "in_progress"],
             },
           },
         ],
@@ -401,7 +413,7 @@ export class MeetingsService {
     });
 
     if (!meeting) {
-      throw new NotFoundException('Meeting not found');
+      throw new NotFoundException("Meeting not found");
     }
 
     // Check if user has access to this meeting
@@ -410,7 +422,7 @@ export class MeetingsService {
       meeting.participants.some((p) => p.userId === userId);
 
     if (!hasAccess) {
-      throw new ForbiddenException('You do not have access to this meeting');
+      throw new ForbiddenException("You do not have access to this meeting");
     }
 
     return meeting;
@@ -421,25 +433,25 @@ export class MeetingsService {
 
     // Only host can update meeting
     if (meeting.hostId !== userId) {
-      throw new ForbiddenException('Only the host can update this meeting');
+      throw new ForbiddenException("Only the host can update this meeting");
     }
 
     // Validate times if both are provided
     if (updateMeetingDto.startTime && updateMeetingDto.endTime) {
       const startTime = new Date(updateMeetingDto.startTime);
       const endTime = new Date(updateMeetingDto.endTime);
-      
+
       if (endTime <= startTime) {
-        throw new BadRequestException('End time must be after start time');
+        throw new BadRequestException("End time must be after start time");
       }
     }
 
     const dataToUpdate: any = { ...updateMeetingDto };
-    
+
     if (updateMeetingDto.startTime) {
       dataToUpdate.startTime = new Date(updateMeetingDto.startTime);
     }
-    
+
     if (updateMeetingDto.endTime) {
       dataToUpdate.endTime = new Date(updateMeetingDto.endTime);
     }
@@ -479,12 +491,12 @@ export class MeetingsService {
 
     // Only host can cancel meeting
     if (meeting.hostId !== userId) {
-      throw new ForbiddenException('Only the host can cancel this meeting');
+      throw new ForbiddenException("Only the host can cancel this meeting");
     }
 
     return this.prisma.meeting.update({
       where: { id },
-      data: { status: 'cancelled' },
+      data: { status: "cancelled" },
       include: {
         host: {
           select: {
@@ -526,7 +538,7 @@ export class MeetingsService {
     });
 
     if (!participant) {
-      throw new NotFoundException('Participant not found');
+      throw new NotFoundException("Participant not found");
     }
 
     return this.prisma.meetingParticipant.update({
@@ -550,6 +562,53 @@ export class MeetingsService {
           select: {
             id: true,
             email: true,
+            firstName: true,
+            lastName: true,
+            profileImage: true,
+          },
+        },
+      },
+    });
+  }
+
+  async getMessages(meetingId: string, userId: string) {
+    // Verify user has access to meeting
+    await this.findOne(meetingId, userId);
+
+    return this.prisma.meetingMessage.findMany({
+      where: { meetingId },
+      include: {
+        user: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            profileImage: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'asc',
+      },
+    });
+  }
+
+  async getParticipantsStatus(meetingId: string, userId: string) {
+    // Verify user has access to meeting
+    await this.findOne(meetingId, userId);
+
+    return this.prisma.meetingParticipant.findMany({
+      where: { meetingId },
+      select: {
+        userId: true,
+        isHandRaised: true,
+        isMuted: true,
+        isCameraOff: true,
+        joinedAt: true,
+        leftAt: true,
+        user: {
+          select: {
+            id: true,
             firstName: true,
             lastName: true,
             profileImage: true,

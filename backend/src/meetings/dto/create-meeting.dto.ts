@@ -1,4 +1,11 @@
-import { IsString, IsNotEmpty, IsDateString, IsOptional, IsEnum, IsArray } from 'class-validator';
+import {
+  IsString,
+  IsNotEmpty,
+  IsDateString,
+  IsOptional,
+  IsEnum,
+  IsArray,
+} from "class-validator";
 
 export class CreateMeetingDto {
   @IsString()
@@ -25,7 +32,7 @@ export class CreateMeetingDto {
   @IsOptional()
   meetingLink?: string;
 
-  @IsEnum(['scheduled', 'instant', 'recurring'])
+  @IsEnum(["scheduled", "instant", "recurring"])
   @IsOptional()
   meetingType?: string;
 
