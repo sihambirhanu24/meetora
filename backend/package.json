@@ -39,6 +39,7 @@
     "class-validator": "^0.14.1",
     "cookie-parser": "^1.4.6",
     "crypto": "^1.0.1",
+    "livekit-server-sdk": "^2.19.2",
     "nodemailer": "^6.9.8",
     "passport": "^0.7.0",
     "passport-google-oauth20": "^2.0.0",
