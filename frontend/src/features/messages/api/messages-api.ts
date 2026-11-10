@@ -1,94 +1,140 @@
-import axios from '@/lib/api/axios';
-import type {
+import axios from 'axios';
+import {
   Conversation,
   Message,
   CreateConversationData,
-  UpdateConversationData,
   SendMessageData,
-  UpdateParticipantSettingsData,
+  UpdateConversationData,
+  UpdateParticipantData,
   AddParticipantsData,
+  ConversationParticipant,
 } from '../types';
 
-export const messagesApi = {
-  // Conversation endpoints
-  getAllConversations: async (workspaceId?: string): Promise<Conversation[]> => {
-    const params = workspaceId ? { workspaceId } : undefined;
-    const { data } = await axios.get('/messages/conversations', { params });
-    return data;
-  },
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 
-  getConversation: async (id: string): Promise<Conversation> => {
-    const { data } = await axios.get(`/messages/conversations/${id}`);
-    return data;
-  },
+// Create axios instance with credentials
+const api = axios.create({
+  baseURL: API_URL,
+  withCredentials: true,
+});
 
-  createConversation: async (conversationData: CreateConversationData): Promise<Conversation> => {
-    const { data } = await axios.post('/messages/conversations', conversationData);
-    return data;
-  },
+// ==================== CONVERSATIONS ====================
 
-  updateConversation: async (
-    id: string,
-    conversationData: UpdateConversationData
-  ): Promise<Conversation> => {
-    const { data } = await axios.patch(`/messages/conversations/${id}`, conversationData);
-    return data;
-  },
+export const createConversation = async (
+  data: CreateConversationData
+): Promise<Conversation> => {
+  const response = await api.post('/messages/conversations', data);
+  return response.data;
+};
 
-  addParticipants: async (
-    id: string,
-    participantsData: AddParticipantsData
-  ): Promise<Conversation> => {
-    const { data } = await axios.post(`/messages/conversations/${id}/participants`, participantsData);
-    return data;
-  },
+export const getUserConversations = async (
+  workspaceId?: string
+): Promise<Conversation[]> => {
+  const response = await api.get('/messages/conversations', {
+    params: { workspaceId },
+  });
+  return response.data;
+};
 
-  updateParticipantSettings: async (
-    id: string,
-    settingsData: UpdateParticipantSettingsData
-  ): Promise<{ message: string }> => {
-    const { data } = await axios.patch(`/messages/conversations/${id}/settings`, settingsData);
-    return data;
-  },
+export const getConversation = async (
+  conversationId: string
+): Promise<Conversation> => {
+  const response = await api.get(`/messages/conversations/${conversationId}`);
+  return response.data;
+};
 
-  leaveConversation: async (id: string): Promise<{ message: string }> => {
-    const { data } = await axios.post(`/messages/conversations/${id}/leave`);
-    return data;
-  },
+export const updateConversation = async (
+  conversationId: string,
+  data: UpdateConversationData
+): Promise<Conversation> => {
+  const response = await api.put(
+    `/messages/conversations/${conversationId}`,
+    data
+  );
+  return response.data;
+};
 
-  // Message endpoints
-  getMessages: async (
-    conversationId: string,
-    limit?: number,
-    before?: string
-  ): Promise<Message[]> => {
-    const params: any = {};
-    if (limit) params.limit = limit;
-    if (before) params.before = before;
-    const { data } = await axios.get(`/messages/conversations/${conversationId}/messages`, {
-      params,
-    });
-    return data;
-  },
+export const deleteConversation = async (
+  conversationId: string
+): Promise<{ message: string }> => {
+  const response = await api.delete(`/messages/conversations/${conversationId}`);
+  return response.data;
+};
 
-  sendMessage: async (
-    conversationId: string,
-    messageData: SendMessageData
-  ): Promise<Message> => {
-    const { data } = await axios.post(
-      `/messages/conversations/${conversationId}/messages`,
-      messageData
-    );
-    return data;
-  },
+// ==================== PARTICIPANTS ====================
 
-  updateMessage: async (id: string, content: string): Promise<Message> => {
-    const { data } = await axios.patch(`/messages/messages/${id}`, { content });
-    return data;
-  },
+export const addParticipants = async (
+  conversationId: string,
+  data: AddParticipantsData
+): Promise<ConversationParticipant[]> => {
+  const response = await api.post(
+    `/messages/conversations/${conversationId}/participants`,
+    data
+  );
+  return response.data;
+};
 
-  deleteMessage: async (id: string): Promise<{ message: string }> => {
-    const { data } = await axios.delete(`/messages/messages/${id}`);
-    return data;
-  },
+export const removeParticipant = async (
+  conversationId: string,
+  userId: string
+): Promise<{ message: string }> => {
+  const response = await api.delete(
+    `/messages/conversations/${conversationId}/participants/${userId}`
+  );
+  return response.data;
+};
+
+export const updateParticipant = async (
+  conversationId: string,
+  userId: string,
+  data: UpdateParticipantData
+): Promise<ConversationParticipant> => {
+  const response = await api.put(
+    `/messages/conversations/${conversationId}/participants/${userId}`,
+    data
+  );
+  return response.data;
+};
+
+// ==================== MESSAGES ====================
+
+export const sendMessage = async (
+  conversationId: string,
+  data: SendMessageData
+): Promise<Message> => {
+  const response = await api.post(
+    `/messages/conversations/${conversationId}/messages`,
+    data
+  );
+  return response.data;
+};
+
+export const getMessages = async (
+  conversationId: string,
+  limit?: number,
+  before?: string
+): Promise<Message[]> => {
+  const response = await api.get(
+    `/messages/conversations/${conversationId}/messages`,
+    {
+      params: { limit, before },
+    }
+  );
+  return response.data;
+};
+
+export const deleteMessage = async (
+  messageId: string
+): Promise<{ message: string }> => {
+  const response = await api.delete(`/messages/messages/${messageId}`);
+  return response.data;
+};
+
+export const markAsRead = async (
+  conversationId: string
+): Promise<{ message: string }> => {
+  const response = await api.post(
+    `/messages/conversations/${conversationId}/read`
+  );
+  return response.data;
 };

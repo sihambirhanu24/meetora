@@ -2,132 +2,146 @@ import {
   Controller,
   Get,
   Post,
-  Body,
-  Patch,
-  Param,
+  Put,
   Delete,
+  Body,
+  Param,
+  Query,
   UseGuards,
   Request,
-  Query,
-} from "@nestjs/common";
-import { MessagesService } from "./messages.service";
-import { CreateConversationDto } from "./dto/create-conversation.dto";
-import { SendMessageDto } from "./dto/send-message.dto";
-import { AddParticipantsDto } from "./dto/add-participants.dto";
-import { UpdateConversationDto } from "./dto/update-conversation.dto";
-import { UpdateParticipantDto } from "./dto/update-participant.dto";
-import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
+} from '@nestjs/common';
+import { MessagesService } from './messages.service';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { CreateConversationDto } from './dto/create-conversation.dto';
+import { SendMessageDto } from './dto/send-message.dto';
+import { UpdateConversationDto } from './dto/update-conversation.dto';
+import { UpdateParticipantDto } from './dto/update-participant.dto';
+import { AddParticipantsDto } from './dto/add-participants.dto';
 
-@Controller("messages")
+@Controller('messages')
 @UseGuards(JwtAuthGuard)
 export class MessagesController {
   constructor(private readonly messagesService: MessagesService) {}
 
-  // Conversation endpoints
-  @Post("conversations")
-  createConversation(
+  // ==================== CONVERSATIONS ====================
+
+  @Post('conversations')
+  async createConversation(
     @Request() req,
     @Body() createConversationDto: CreateConversationDto,
   ) {
     return this.messagesService.createConversation(
-      req.user.id,
+      req.user.userId,
       createConversationDto,
     );
   }
 
-  @Get("conversations")
-  findAllConversations(
+  @Get('conversations')
+  async getUserConversations(
     @Request() req,
-    @Query("workspaceId") workspaceId?: string,
+    @Query('workspaceId') workspaceId?: string,
   ) {
-    return this.messagesService.findAllConversations(req.user.id, workspaceId);
+    return this.messagesService.getUserConversations(
+      req.user.userId,
+      workspaceId,
+    );
   }
 
-  @Get("conversations/:id")
-  findOneConversation(@Request() req, @Param("id") id: string) {
-    return this.messagesService.findOneConversation(id, req.user.id);
+  @Get('conversations/:id')
+  async getConversation(@Request() req, @Param('id') id: string) {
+    return this.messagesService.getConversation(req.user.userId, id);
   }
 
-  @Patch("conversations/:id")
-  updateConversation(
+  @Put('conversations/:id')
+  async updateConversation(
     @Request() req,
-    @Param("id") id: string,
+    @Param('id') id: string,
     @Body() updateConversationDto: UpdateConversationDto,
   ) {
     return this.messagesService.updateConversation(
+      req.user.userId,
       id,
-      req.user.id,
       updateConversationDto,
     );
   }
 
-  @Post("conversations/:id/participants")
-  addParticipants(
+  @Delete('conversations/:id')
+  async deleteConversation(@Request() req, @Param('id') id: string) {
+    return this.messagesService.deleteConversation(req.user.userId, id);
+  }
+
+  // ==================== PARTICIPANTS ====================
+
+  @Post('conversations/:id/participants')
+  async addParticipants(
     @Request() req,
-    @Param("id") id: string,
+    @Param('id') id: string,
     @Body() addParticipantsDto: AddParticipantsDto,
   ) {
     return this.messagesService.addParticipants(
+      req.user.userId,
       id,
-      req.user.id,
       addParticipantsDto,
     );
   }
 
-  @Patch("conversations/:id/settings")
-  updateParticipantSettings(
+  @Delete('conversations/:id/participants/:userId')
+  async removeParticipant(
     @Request() req,
-    @Param("id") id: string,
+    @Param('id') id: string,
+    @Param('userId') userId: string,
+  ) {
+    return this.messagesService.removeParticipant(req.user.userId, id, userId);
+  }
+
+  @Put('conversations/:id/participants/:userId')
+  async updateParticipant(
+    @Request() req,
+    @Param('id') id: string,
+    @Param('userId') userId: string,
     @Body() updateParticipantDto: UpdateParticipantDto,
   ) {
-    return this.messagesService.updateParticipantSettings(
+    return this.messagesService.updateParticipant(
+      req.user.userId,
       id,
-      req.user.id,
+      userId,
       updateParticipantDto,
     );
   }
 
-  @Post("conversations/:id/leave")
-  leaveConversation(@Request() req, @Param("id") id: string) {
-    return this.messagesService.leaveConversation(id, req.user.id);
+  // ==================== MESSAGES ====================
+
+  @Post('conversations/:id/messages')
+  async sendMessage(
+    @Request() req,
+    @Param('id') id: string,
+    @Body() sendMessageDto: SendMessageDto,
+  ) {
+    return this.messagesService.sendMessage(req.user.userId, id, sendMessageDto);
   }
 
-  // Message endpoints
-  @Get("conversations/:id/messages")
-  getMessages(
+  @Get('conversations/:id/messages')
+  async getMessages(
     @Request() req,
-    @Param("id") id: string,
-    @Query("limit") limit?: string,
-    @Query("before") before?: string,
+    @Param('id') id: string,
+    @Query('limit') limit?: string,
+    @Query('before') before?: string,
   ) {
     return this.messagesService.getMessages(
+      req.user.userId,
       id,
-      req.user.id,
-      limit ? parseInt(limit) : 50,
+      limit ? parseInt(limit, 10) : 50,
       before,
     );
   }
 
-  @Post("conversations/:id/messages")
-  sendMessage(
-    @Request() req,
-    @Param("id") id: string,
-    @Body() sendMessageDto: SendMessageDto,
-  ) {
-    return this.messagesService.sendMessage(id, req.user.id, sendMessageDto);
+  @Delete('messages/:id')
+  async deleteMessage(@Request() req, @Param('id') id: string) {
+    return this.messagesService.deleteMessage(req.user.userId, id);
   }
 
-  @Patch("messages/:id")
-  updateMessage(
-    @Request() req,
-    @Param("id") id: string,
-    @Body("content") content: string,
-  ) {
-    return this.messagesService.updateMessage(id, req.user.id, content);
-  }
-
-  @Delete("messages/:id")
-  deleteMessage(@Request() req, @Param("id") id: string) {
-    return this.messagesService.deleteMessage(id, req.user.id);
+  @Post('conversations/:id/read')
+  async markAsRead(@Request() req, @Param('id') id: string) {
+    return this.messagesService.markAsRead(req.user.userId, id);
   }
 }

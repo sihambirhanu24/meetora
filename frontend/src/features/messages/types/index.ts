@@ -1,46 +1,10 @@
 export interface User {
   id: string;
-  email: string;
   firstName: string;
   lastName: string;
+  email: string;
   profileImage?: string;
   jobTitle?: string;
-}
-
-export interface Conversation {
-  id: string;
-  type: 'direct' | 'group' | 'channel';
-  workspaceId?: string;
-  name?: string;
-  description?: string;
-  isPrivate: boolean;
-  createdById: string;
-  createdBy: User;
-  participants: ConversationParticipant[];
-  lastMessageAt?: string;
-  createdAt: string;
-  updatedAt: string;
-  displayName: string;
-  displayImage?: string;
-  unreadCount: number;
-  myRole?: string;
-  lastMessage?: Message;
-  _count?: {
-    messages: number;
-  };
-}
-
-export interface ConversationParticipant {
-  id: string;
-  conversationId: string;
-  userId: string;
-  user: User;
-  role: string;
-  lastReadAt?: string;
-  isMuted: boolean;
-  isPinned: boolean;
-  joinedAt: string;
-  leftAt?: string;
 }
 
 export interface Message {
@@ -51,7 +15,15 @@ export interface Message {
   content: string;
   type: 'text' | 'file' | 'image' | 'system';
   parentMessageId?: string;
-  parentMessage?: Message;
+  parentMessage?: {
+    id: string;
+    content: string;
+    sender: {
+      id: string;
+      firstName: string;
+      lastName: string;
+    };
+  };
   metadata?: any;
   isEdited: boolean;
   editedAt?: string;
@@ -59,9 +31,43 @@ export interface Message {
   deletedAt?: string;
   createdAt: string;
   updatedAt: string;
-  _count?: {
-    replies: number;
+}
+
+export interface ConversationParticipant {
+  id: string;
+  conversationId: string;
+  userId: string;
+  user: User;
+  role: 'admin' | 'member';
+  lastReadAt?: string;
+  isMuted: boolean;
+  isPinned: boolean;
+  joinedAt: string;
+  leftAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Conversation {
+  id: string;
+  type: 'direct' | 'group' | 'channel';
+  workspaceId?: string;
+  name?: string;
+  description?: string;
+  isPrivate: boolean;
+  createdById: string;
+  createdBy?: {
+    id: string;
+    firstName: string;
+    lastName: string;
   };
+  participants: ConversationParticipant[];
+  messages?: Message[];
+  lastMessageAt?: string;
+  unreadCount?: number;
+  currentUserParticipant?: ConversationParticipant;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface CreateConversationData {
@@ -86,9 +92,11 @@ export interface SendMessageData {
   metadata?: any;
 }
 
-export interface UpdateParticipantSettingsData {
+export interface UpdateParticipantData {
+  role?: 'admin' | 'member';
   isMuted?: boolean;
   isPinned?: boolean;
+  lastReadAt?: string;
 }
 
 export interface AddParticipantsData {

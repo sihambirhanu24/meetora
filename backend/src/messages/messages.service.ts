@@ -3,50 +3,55 @@ import {
   NotFoundException,
   ForbiddenException,
   BadRequestException,
-} from "@nestjs/common";
-import { PrismaService } from "../prisma/prisma.service";
-import { CreateConversationDto } from "./dto/create-conversation.dto";
-import { SendMessageDto } from "./dto/send-message.dto";
-import { AddParticipantsDto } from "./dto/add-participants.dto";
-import { UpdateConversationDto } from "./dto/update-conversation.dto";
-import { UpdateParticipantDto } from "./dto/update-participant.dto";
+} from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
+import { CreateConversationDto } from './dto/create-conversation.dto';
+import { SendMessageDto } from './dto/send-message.dto';
+import { UpdateConversationDto } from './dto/update-conversation.dto';
+import { UpdateParticipantDto } from './dto/update-participant.dto';
+import { AddParticipantsDto } from './dto/add-participants.dto';
 
 @Injectable()
 export class MessagesService {
   constructor(private prisma: PrismaService) {}
 
-  // Create a new conversation
-  async createConversation(
-    userId: string,
-    createConversationDto: CreateConversationDto,
-  ) {
-    const { participantIds, workspaceId, type, ...conversationData } =
-      createConversationDto;
+  // ==================== CONVERSATIONS ====================
 
-    // Validate workspace access if provided
-    if (workspaceId) {
-      await this.validateWorkspaceMembership(workspaceId, userId);
-
-      // For workspace channels, validate participants are workspace members
-      if (type === "channel") {
-        for (const participantId of participantIds) {
-          await this.validateWorkspaceMembership(workspaceId, participantId);
-        }
-      }
+  async createConversation(userId: string, dto: CreateConversationDto) {
+    // Validate type-specific requirements
+    if (dto.type === 'channel' && !dto.workspaceId) {
+      throw new BadRequestException('Workspace ID is required for channels');
     }
 
-    // Validate direct conversations have exactly 2 participants (creator + 1 other)
-    if (type === "direct" && participantIds.length !== 1) {
+    if (dto.type === 'channel' && !dto.name) {
+      throw new BadRequestException('Channel name is required');
+    }
+
+    if (dto.type === 'direct' && dto.participantIds.length !== 1) {
       throw new BadRequestException(
-        "Direct conversations must have exactly one other participant",
+        'Direct conversations must have exactly one other participant',
       );
     }
 
+    // For channels, verify user is a workspace member
+    if (dto.type === 'channel' && dto.workspaceId) {
+      const membership = await this.prisma.workspaceMember.findFirst({
+        where: {
+          workspaceId: dto.workspaceId,
+          userId,
+        },
+      });
+
+      if (!membership) {
+        throw new ForbiddenException('You are not a member of this workspace');
+      }
+    }
+
     // Check if direct conversation already exists
-    if (type === "direct") {
+    if (dto.type === 'direct') {
       const existingConversation = await this.findExistingDirectConversation(
         userId,
-        participantIds[0],
+        dto.participantIds[0],
       );
       if (existingConversation) {
         return existingConversation;
@@ -56,54 +61,91 @@ export class MessagesService {
     // Create conversation with participants
     const conversation = await this.prisma.conversation.create({
       data: {
-        type,
-        workspaceId,
-        name: conversationData.name,
-        description: conversationData.description,
-        isPrivate: conversationData.isPrivate ?? false,
+        type: dto.type,
+        workspaceId: dto.workspaceId,
+        name: dto.name,
+        description: dto.description,
+        isPrivate: dto.isPrivate ?? false,
         createdById: userId,
         participants: {
           create: [
-            // Add creator
             {
               userId,
-              role: type === "channel" ? "admin" : "member",
+              role: dto.type === 'channel' ? 'admin' : 'member',
             },
-            // Add other participants
-            ...participantIds.map((participantId) => ({
+            ...dto.participantIds.map((participantId) => ({
               userId: participantId,
-              role: "member",
+              role: 'member',
             })),
           ],
         },
       },
       include: {
-        createdBy: this.getUserSelect(),
         participants: {
           include: {
-            user: this.getUserSelect(),
+            user: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                email: true,
+                profileImage: true,
+                jobTitle: true,
+              },
+            },
           },
         },
-        messages: {
-          take: 1,
-          orderBy: { createdAt: "desc" },
-          include: {
-            sender: this.getUserSelect(),
-          },
-        },
-        _count: {
+        createdBy: {
           select: {
-            messages: true,
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            profileImage: true,
           },
         },
       },
     });
 
-    return this.formatConversation(conversation, userId);
+    return conversation;
   }
 
-  // Get all conversations for a user
-  async findAllConversations(userId: string, workspaceId?: string) {
+  async findExistingDirectConversation(userId1: string, userId2: string) {
+    const conversations = await this.prisma.conversation.findMany({
+      where: {
+        type: 'direct',
+        participants: {
+          some: {
+            userId: userId1,
+          },
+        },
+      },
+      include: {
+        participants: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                email: true,
+                profileImage: true,
+                jobTitle: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    // Find the conversation where both users are participants
+    return conversations.find((conv) => {
+      const participantIds = conv.participants.map((p) => p.userId);
+      return participantIds.includes(userId1) && participantIds.includes(userId2);
+    });
+  }
+
+  async getUserConversations(userId: string, workspaceId?: string) {
     const where: any = {
       participants: {
         some: {
@@ -114,313 +156,370 @@ export class MessagesService {
     };
 
     if (workspaceId) {
-      // Validate workspace access
-      await this.validateWorkspaceMembership(workspaceId, userId);
       where.workspaceId = workspaceId;
     }
 
     const conversations = await this.prisma.conversation.findMany({
       where,
       include: {
-        createdBy: this.getUserSelect(),
         participants: {
-          where: { leftAt: null },
+          where: {
+            leftAt: null,
+          },
           include: {
-            user: this.getUserSelect(),
+            user: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                email: true,
+                profileImage: true,
+                jobTitle: true,
+              },
+            },
           },
         },
         messages: {
-          take: 1,
-          orderBy: { createdAt: "desc" },
-          where: { isDeleted: false },
-          include: {
-            sender: this.getUserSelect(),
+          orderBy: {
+            createdAt: 'desc',
           },
-        },
-        _count: {
-          select: {
-            messages: true,
+          take: 1,
+          include: {
+            sender: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+              },
+            },
           },
         },
       },
       orderBy: {
-        lastMessageAt: "desc",
+        lastMessageAt: 'desc',
       },
     });
 
-    return conversations.map((conv) => this.formatConversation(conv, userId));
+    // Calculate unread count for each conversation
+    const conversationsWithUnread = await Promise.all(
+      conversations.map(async (conv) => {
+        const participant = conv.participants.find((p) => p.userId === userId);
+        const unreadCount = await this.prisma.message.count({
+          where: {
+            conversationId: conv.id,
+            createdAt: {
+              gt: participant?.lastReadAt || new Date(0),
+            },
+            senderId: {
+              not: userId,
+            },
+          },
+        });
+
+        return {
+          ...conv,
+          unreadCount,
+          currentUserParticipant: participant,
+        };
+      }),
+    );
+
+    return conversationsWithUnread;
   }
 
-  // Get a single conversation
-  async findOneConversation(conversationId: string, userId: string) {
+  async getConversation(userId: string, conversationId: string) {
     const conversation = await this.prisma.conversation.findUnique({
       where: { id: conversationId },
       include: {
-        createdBy: this.getUserSelect(),
         participants: {
-          where: { leftAt: null },
+          where: {
+            leftAt: null,
+          },
           include: {
-            user: this.getUserSelect(),
+            user: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                email: true,
+                profileImage: true,
+                jobTitle: true,
+              },
+            },
           },
         },
-        messages: {
-          take: 1,
-          orderBy: { createdAt: "desc" },
-          where: { isDeleted: false },
-          include: {
-            sender: this.getUserSelect(),
-          },
-        },
-        _count: {
+        createdBy: {
           select: {
-            messages: true,
+            id: true,
+            firstName: true,
+            lastName: true,
           },
         },
       },
     });
 
     if (!conversation) {
-      throw new NotFoundException("Conversation not found");
+      throw new NotFoundException('Conversation not found');
     }
 
     // Check if user is a participant
-    await this.validateConversationAccess(conversationId, userId);
+    const isParticipant = conversation.participants.some(
+      (p) => p.userId === userId,
+    );
 
-    return this.formatConversation(conversation, userId);
-  }
-
-  // Update conversation (name, description, etc.)
-  async updateConversation(
-    conversationId: string,
-    userId: string,
-    updateConversationDto: UpdateConversationDto,
-  ) {
-    const conversation = await this.prisma.conversation.findUnique({
-      where: { id: conversationId },
-      include: {
-        participants: {
-          where: { userId, leftAt: null },
-        },
-      },
-    });
-
-    if (!conversation) {
-      throw new NotFoundException("Conversation not found");
-    }
-
-    const participant = conversation.participants[0];
-    if (!participant) {
-      throw new ForbiddenException("You are not a member of this conversation");
-    }
-
-    // Only admins can update channels
-    if (conversation.type === "channel" && participant.role !== "admin") {
+    if (!isParticipant) {
       throw new ForbiddenException(
-        "Only channel admins can update this conversation",
+        'You do not have access to this conversation',
       );
     }
 
-    // Cannot update direct conversations
-    if (conversation.type === "direct") {
-      throw new BadRequestException("Cannot update direct conversations");
-    }
-
-    const updated = await this.prisma.conversation.update({
-      where: { id: conversationId },
-      data: updateConversationDto,
-      include: {
-        createdBy: this.getUserSelect(),
-        participants: {
-          where: { leftAt: null },
-          include: {
-            user: this.getUserSelect(),
-          },
-        },
-        _count: {
-          select: {
-            messages: true,
-          },
-        },
-      },
-    });
-
-    return this.formatConversation(updated, userId);
+    return conversation;
   }
 
-  // Add participants to a conversation
-  async addParticipants(
-    conversationId: string,
+  async updateConversation(
     userId: string,
-    addParticipantsDto: AddParticipantsDto,
+    conversationId: string,
+    dto: UpdateConversationDto,
   ) {
-    const conversation = await this.prisma.conversation.findUnique({
+    const conversation = await this.getConversation(userId, conversationId);
+
+    // Only channel admins or conversation creator can update
+    const participant = conversation.participants.find((p) => p.userId === userId);
+
+    if (
+      conversation.type === 'channel' &&
+      participant?.role !== 'admin' &&
+      conversation.createdById !== userId
+    ) {
+      throw new ForbiddenException(
+        'Only channel admins can update the channel',
+      );
+    }
+
+    if (conversation.type !== 'channel') {
+      throw new BadRequestException(
+        'Only channels can be updated',
+      );
+    }
+
+    return this.prisma.conversation.update({
       where: { id: conversationId },
+      data: {
+        name: dto.name,
+        description: dto.description,
+        isPrivate: dto.isPrivate,
+      },
       include: {
         participants: {
-          where: { userId, leftAt: null },
+          include: {
+            user: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                email: true,
+                profileImage: true,
+              },
+            },
+          },
         },
       },
     });
+  }
 
-    if (!conversation) {
-      throw new NotFoundException("Conversation not found");
+  async deleteConversation(userId: string, conversationId: string) {
+    const conversation = await this.getConversation(userId, conversationId);
+
+    // Only creator can delete
+    if (conversation.createdById !== userId) {
+      throw new ForbiddenException('Only the creator can delete this conversation');
     }
 
-    const participant = conversation.participants[0];
-    if (!participant) {
-      throw new ForbiddenException("You are not a member of this conversation");
-    }
+    await this.prisma.conversation.delete({
+      where: { id: conversationId },
+    });
+
+    return { message: 'Conversation deleted successfully' };
+  }
+
+  // ==================== PARTICIPANTS ====================
+
+  async addParticipants(
+    userId: string,
+    conversationId: string,
+    dto: AddParticipantsDto,
+  ) {
+    const conversation = await this.getConversation(userId, conversationId);
 
     // Only admins can add participants to channels
-    if (conversation.type === "channel" && participant.role !== "admin") {
-      throw new ForbiddenException("Only channel admins can add participants");
-    }
-
-    // Cannot add participants to direct conversations
-    if (conversation.type === "direct") {
-      throw new BadRequestException(
-        "Cannot add participants to direct conversations",
+    if (conversation.type === 'channel') {
+      const participant = conversation.participants.find(
+        (p) => p.userId === userId,
       );
-    }
-
-    // Validate workspace membership if conversation is in a workspace
-    if (conversation.workspaceId) {
-      for (const newParticipantId of addParticipantsDto.userIds) {
-        await this.validateWorkspaceMembership(
-          conversation.workspaceId,
-          newParticipantId,
+      if (participant?.role !== 'admin') {
+        throw new ForbiddenException(
+          'Only channel admins can add participants',
         );
       }
     }
 
+    // Cannot add participants to direct messages
+    if (conversation.type === 'direct') {
+      throw new BadRequestException(
+        'Cannot add participants to direct messages',
+      );
+    }
+
     // Add participants
-    const newParticipants =
-      await this.prisma.conversationParticipant.createMany({
-        data: addParticipantsDto.userIds.map((participantUserId) => ({
-          conversationId,
-          userId: participantUserId,
-          role: "member",
-        })),
-        skipDuplicates: true,
-      });
-
-    return this.findOneConversation(conversationId, userId);
-  }
-
-  // Update participant settings (mute, pin, etc.)
-  async updateParticipantSettings(
-    conversationId: string,
-    userId: string,
-    updateParticipantDto: UpdateParticipantDto,
-  ) {
-    const participant = await this.prisma.conversationParticipant.findUnique({
-      where: {
-        conversationId_userId: {
-          conversationId,
-          userId,
-        },
-      },
-    });
-
-    if (!participant || participant.leftAt) {
-      throw new ForbiddenException("You are not a member of this conversation");
-    }
-
-    await this.prisma.conversationParticipant.update({
-      where: { id: participant.id },
-      data: updateParticipantDto,
-    });
-
-    return { message: "Participant settings updated" };
-  }
-
-  // Leave a conversation
-  async leaveConversation(conversationId: string, userId: string) {
-    const participant = await this.prisma.conversationParticipant.findUnique({
-      where: {
-        conversationId_userId: {
-          conversationId,
-          userId,
-        },
-      },
-    });
-
-    if (!participant || participant.leftAt) {
-      throw new ForbiddenException("You are not a member of this conversation");
-    }
-
-    await this.prisma.conversationParticipant.update({
-      where: { id: participant.id },
-      data: { leftAt: new Date() },
-    });
-
-    return { message: "Left conversation" };
-  }
-
-  // Get messages in a conversation
-  async getMessages(
-    conversationId: string,
-    userId: string,
-    limit = 50,
-    before?: string,
-  ) {
-    // Validate access
-    await this.validateConversationAccess(conversationId, userId);
-
-    const where: any = {
-      conversationId,
-      isDeleted: false,
-    };
-
-    if (before) {
-      where.createdAt = { lt: new Date(before) };
-    }
-
-    const messages = await this.prisma.message.findMany({
-      where,
-      take: limit,
-      orderBy: { createdAt: "desc" },
-      include: {
-        sender: this.getUserSelect(),
-        parentMessage: {
+    const newParticipants = await Promise.all(
+      dto.userIds.map((userId) =>
+        this.prisma.conversationParticipant.create({
+          data: {
+            conversationId,
+            userId,
+            role: 'member',
+          },
           include: {
-            sender: this.getUserSelect(),
+            user: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                email: true,
+                profileImage: true,
+              },
+            },
           },
-        },
-        _count: {
+        }),
+      ),
+    );
+
+    return newParticipants;
+  }
+
+  async removeParticipant(
+    userId: string,
+    conversationId: string,
+    participantUserId: string,
+  ) {
+    const conversation = await this.getConversation(userId, conversationId);
+
+    // Check permissions
+    const isAdmin = conversation.participants.find(
+      (p) => p.userId === userId && p.role === 'admin',
+    );
+
+    const isSelf = userId === participantUserId;
+
+    if (!isAdmin && !isSelf) {
+      throw new ForbiddenException(
+        'You do not have permission to remove this participant',
+      );
+    }
+
+    // Cannot remove creator from channel
+    if (conversation.createdById === participantUserId) {
+      throw new BadRequestException('Cannot remove the channel creator');
+    }
+
+    // Mark as left instead of deleting
+    await this.prisma.conversationParticipant.updateMany({
+      where: {
+        conversationId,
+        userId: participantUserId,
+      },
+      data: {
+        leftAt: new Date(),
+      },
+    });
+
+    return { message: 'Participant removed successfully' };
+  }
+
+  async updateParticipant(
+    userId: string,
+    conversationId: string,
+    participantUserId: string,
+    dto: UpdateParticipantDto,
+  ) {
+    const conversation = await this.getConversation(userId, conversationId);
+
+    // User can only update their own participant record for mute/pin
+    // Only admins can change roles
+    const isSelf = userId === participantUserId;
+    const isAdmin = conversation.participants.find(
+      (p) => p.userId === userId && p.role === 'admin',
+    );
+
+    if (dto.role && !isAdmin) {
+      throw new ForbiddenException('Only admins can change participant roles');
+    }
+
+    if (!isSelf && !isAdmin) {
+      throw new ForbiddenException(
+        'You do not have permission to update this participant',
+      );
+    }
+
+    const participant = await this.prisma.conversationParticipant.findFirst({
+      where: {
+        conversationId,
+        userId: participantUserId,
+      },
+    });
+
+    if (!participant) {
+      throw new NotFoundException('Participant not found');
+    }
+
+    return this.prisma.conversationParticipant.update({
+      where: { id: participant.id },
+      data: {
+        role: dto.role,
+        isMuted: dto.isMuted,
+        isPinned: dto.isPinned,
+        lastReadAt: dto.lastReadAt ? new Date(dto.lastReadAt) : undefined,
+      },
+      include: {
+        user: {
           select: {
-            replies: true,
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            profileImage: true,
           },
         },
       },
     });
-
-    // Update last read timestamp
-    await this.updateLastRead(conversationId, userId);
-
-    return messages.reverse();
   }
 
-  // Send a message
-  async sendMessage(
-    conversationId: string,
-    userId: string,
-    sendMessageDto: SendMessageDto,
-  ) {
-    // Validate access
-    await this.validateConversationAccess(conversationId, userId);
+  // ==================== MESSAGES ====================
 
-    // Validate parent message if replying
-    if (sendMessageDto.parentMessageId) {
-      const parentMessage = await this.prisma.message.findFirst({
-        where: {
-          id: sendMessageDto.parentMessageId,
-          conversationId,
-        },
+  async sendMessage(
+    userId: string,
+    conversationId: string,
+    dto: SendMessageDto,
+  ) {
+    const conversation = await this.getConversation(userId, conversationId);
+
+    // Verify user is a participant
+    const isParticipant = conversation.participants.some(
+      (p) => p.userId === userId,
+    );
+
+    if (!isParticipant) {
+      throw new ForbiddenException('You are not a participant in this conversation');
+    }
+
+    // If replying, verify parent message exists
+    if (dto.parentMessageId) {
+      const parentMessage = await this.prisma.message.findUnique({
+        where: { id: dto.parentMessageId },
       });
 
-      if (!parentMessage) {
-        throw new BadRequestException("Parent message not found");
+      if (!parentMessage || parentMessage.conversationId !== conversationId) {
+        throw new BadRequestException('Invalid parent message');
       }
     }
 
@@ -429,90 +528,122 @@ export class MessagesService {
       data: {
         conversationId,
         senderId: userId,
-        content: sendMessageDto.content,
-        type: sendMessageDto.type || "text",
-        parentMessageId: sendMessageDto.parentMessageId,
-        metadata: sendMessageDto.metadata,
+        content: dto.content,
+        type: dto.type || 'text',
+        parentMessageId: dto.parentMessageId,
+        metadata: dto.metadata,
       },
       include: {
-        sender: this.getUserSelect(),
-        parentMessage: {
-          include: {
-            sender: this.getUserSelect(),
+        sender: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            profileImage: true,
           },
         },
-        _count: {
-          select: {
-            replies: true,
+        parentMessage: {
+          include: {
+            sender: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+              },
+            },
           },
         },
       },
     });
 
-    // Update conversation's lastMessageAt
+    // Update conversation lastMessageAt
     await this.prisma.conversation.update({
       where: { id: conversationId },
-      data: { lastMessageAt: new Date() },
+      data: {
+        lastMessageAt: new Date(),
+      },
     });
 
     return message;
   }
 
-  // Update message (edit)
-  async updateMessage(messageId: string, userId: string, content: string) {
-    const message = await this.prisma.message.findUnique({
-      where: { id: messageId },
-    });
+  async getMessages(
+    userId: string,
+    conversationId: string,
+    limit: number = 50,
+    before?: string,
+  ) {
+    // Verify access
+    await this.getConversation(userId, conversationId);
 
-    if (!message) {
-      throw new NotFoundException("Message not found");
+    const where: any = {
+      conversationId,
+      isDeleted: false,
+    };
+
+    if (before) {
+      const beforeMessage = await this.prisma.message.findUnique({
+        where: { id: before },
+      });
+      if (beforeMessage) {
+        where.createdAt = {
+          lt: beforeMessage.createdAt,
+        };
+      }
     }
 
-    if (message.senderId !== userId) {
-      throw new ForbiddenException("You can only edit your own messages");
-    }
-
-    if (message.isDeleted) {
-      throw new BadRequestException("Cannot edit deleted messages");
-    }
-
-    return this.prisma.message.update({
-      where: { id: messageId },
-      data: {
-        content,
-        isEdited: true,
-        editedAt: new Date(),
+    const messages = await this.prisma.message.findMany({
+      where,
+      orderBy: {
+        createdAt: 'desc',
       },
+      take: limit,
       include: {
-        sender: this.getUserSelect(),
+        sender: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            profileImage: true,
+          },
+        },
         parentMessage: {
           include: {
-            sender: this.getUserSelect(),
-          },
-        },
-        _count: {
-          select: {
-            replies: true,
+            sender: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+              },
+            },
           },
         },
       },
     });
+
+    return messages.reverse(); // Return in chronological order
   }
 
-  // Delete message
-  async deleteMessage(messageId: string, userId: string) {
+  async deleteMessage(userId: string, messageId: string) {
     const message = await this.prisma.message.findUnique({
       where: { id: messageId },
+      include: {
+        conversation: true,
+      },
     });
 
     if (!message) {
-      throw new NotFoundException("Message not found");
+      throw new NotFoundException('Message not found');
     }
 
+    // Only sender can delete their message
     if (message.senderId !== userId) {
-      throw new ForbiddenException("You can only delete your own messages");
+      throw new ForbiddenException('You can only delete your own messages');
     }
 
+    // Soft delete
     await this.prisma.message.update({
       where: { id: messageId },
       data: {
@@ -521,151 +652,32 @@ export class MessagesService {
       },
     });
 
-    return { message: "Message deleted" };
+    return { message: 'Message deleted successfully' };
   }
 
-  // Helper: Validate workspace membership
-  private async validateWorkspaceMembership(
-    workspaceId: string,
-    userId: string,
-  ) {
-    const member = await this.prisma.workspaceMember.findUnique({
-      where: {
-        workspaceId_userId: {
-          workspaceId,
-          userId,
-        },
-      },
-    });
+  async markAsRead(userId: string, conversationId: string) {
+    // Verify access
+    await this.getConversation(userId, conversationId);
 
-    if (!member) {
-      throw new ForbiddenException("You are not a member of this workspace");
-    }
-
-    return member;
-  }
-
-  // Helper: Validate conversation access
-  private async validateConversationAccess(
-    conversationId: string,
-    userId: string,
-  ) {
-    const participant = await this.prisma.conversationParticipant.findUnique({
-      where: {
-        conversationId_userId: {
-          conversationId,
-          userId,
-        },
-      },
-    });
-
-    if (!participant || participant.leftAt) {
-      throw new ForbiddenException(
-        "You do not have access to this conversation",
-      );
-    }
-
-    return participant;
-  }
-
-  // Helper: Find existing direct conversation
-  private async findExistingDirectConversation(
-    userId1: string,
-    userId2: string,
-  ) {
-    const conversations = await this.prisma.conversation.findMany({
-      where: {
-        type: "direct",
-        participants: {
-          every: {
-            userId: {
-              in: [userId1, userId2],
-            },
-            leftAt: null,
-          },
-        },
-      },
-      include: {
-        participants: {
-          where: { leftAt: null },
-        },
-      },
-    });
-
-    // Find conversation with exactly these two users
-    const existingConversation = conversations.find(
-      (conv) =>
-        conv.participants.length === 2 &&
-        conv.participants.some((p) => p.userId === userId1) &&
-        conv.participants.some((p) => p.userId === userId2),
-    );
-
-    if (existingConversation) {
-      return this.findOneConversation(existingConversation.id, userId1);
-    }
-
-    return null;
-  }
-
-  // Helper: Update last read timestamp
-  private async updateLastRead(conversationId: string, userId: string) {
-    await this.prisma.conversationParticipant.updateMany({
+    // Update participant's lastReadAt
+    const participant = await this.prisma.conversationParticipant.findFirst({
       where: {
         conversationId,
         userId,
       },
+    });
+
+    if (!participant) {
+      throw new NotFoundException('Participant record not found');
+    }
+
+    await this.prisma.conversationParticipant.update({
+      where: { id: participant.id },
       data: {
         lastReadAt: new Date(),
       },
     });
-  }
 
-  // Helper: Get user select fields
-  private getUserSelect() {
-    return {
-      select: {
-        id: true,
-        email: true,
-        firstName: true,
-        lastName: true,
-        profileImage: true,
-        jobTitle: true,
-      },
-    };
-  }
-
-  // Helper: Format conversation with computed fields
-  private formatConversation(conversation: any, userId: string) {
-    const myParticipant = conversation.participants.find(
-      (p: any) => p.userId === userId,
-    );
-
-    // Calculate unread count
-    const unreadCount = myParticipant?.lastReadAt
-      ? conversation._count?.messages || 0
-      : 0;
-
-    // For direct conversations, get the other user's info
-    let displayName = conversation.name;
-    let displayImage = null;
-
-    if (conversation.type === "direct") {
-      const otherParticipant = conversation.participants.find(
-        (p: any) => p.userId !== userId,
-      );
-      if (otherParticipant) {
-        displayName = `${otherParticipant.user.firstName} ${otherParticipant.user.lastName}`;
-        displayImage = otherParticipant.user.profileImage;
-      }
-    }
-
-    return {
-      ...conversation,
-      displayName,
-      displayImage,
-      unreadCount,
-      myRole: myParticipant?.role || null,
-      lastMessage: conversation.messages?.[0] || null,
-    };
+    return { message: 'Conversation marked as read' };
   }
 }
