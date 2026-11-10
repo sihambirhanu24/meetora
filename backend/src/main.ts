@@ -38,16 +38,20 @@ async function bootstrap() {
   app.use(cookieParser());
 
   // CORS configuration
+  const allowedOrigins = [
+    "http://localhost:3000",
+    "http://localhost:3001",
+    "http://localhost:3002",
+    process.env.FRONTEND_URL,
+    "https://meetora-livid.vercel.app", // Production frontend
+  ].filter(Boolean);
+
   app.enableCors({
-    origin: [
-      "http://localhost:3000",
-      "http://localhost:3001",
-      "http://localhost:3002",
-      process.env.FRONTEND_URL,
-    ].filter(Boolean),
+    origin: allowedOrigins,
     credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization", "Accept"],
+    exposedHeaders: ["set-cookie"],
   });
 
   // Global prefix

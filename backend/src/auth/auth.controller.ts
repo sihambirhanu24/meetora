@@ -38,19 +38,31 @@ export class AuthController {
     @Req() req: any,
     @Res({ passthrough: true }) response: Response,
   ) {
-    const result = await this.authService.googleLogin(req.user);
+    try {
+      const result = await this.authService.googleLogin(req.user);
 
-    // Set JWT in HTTP-only cookie
-    response.cookie("access_token", result.accessToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-    });
+      // Determine environment
+      const isProduction = process.env.NODE_ENV === "production";
+      const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3002";
 
-    // Redirect to frontend dashboard
-    const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
-    response.redirect(`${frontendUrl}/dashboard?google_login=success`);
+      // Set JWT in HTTP-only cookie with correct cross-domain settings
+      response.cookie("access_token", result.accessToken, {
+        httpOnly: true,
+        secure: isProduction,
+        sameSite: isProduction ? "none" : "lax", // "none" required for cross-domain in production
+        maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+        domain: isProduction ? undefined : undefined, // Let browser handle domain
+      });
+
+      // Redirect to frontend dashboard
+      response.redirect(`${frontendUrl}/dashboard?google_login=success`);
+    } catch (error) {
+      const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3002";
+      // Redirect to login with error
+      response.redirect(
+        `${frontendUrl}/auth/sign-in?error=${encodeURIComponent(error.message || "Authentication failed")}`,
+      );
+    }
   }
 
   @Post("register")
@@ -69,11 +81,14 @@ export class AuthController {
   ) {
     const result = await this.authService.login(loginDto);
 
-    // Set JWT in HTTP-only cookie
+    // Determine environment
+    const isProduction = process.env.NODE_ENV === "production";
+
+    // Set JWT in HTTP-only cookie with same settings as Google OAuth
     response.cookie("access_token", result.accessToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
+      secure: isProduction,
+      sameSite: isProduction ? "none" : "lax",
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
 
@@ -87,7 +102,14 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.OK)
   async logout(@Res({ passthrough: true }) response: Response) {
-    response.clearCookie("access_token");
+    const isProduction = process.env.NODE_ENV === "production";
+    
+    response.clearCookie("access_token", {
+      httpOnly: true,
+      secure: isProduction,
+      sameSite: isProduction ? "none" : "lax",
+    });
+    
     return { message: "Logout successful" };
   }
 
