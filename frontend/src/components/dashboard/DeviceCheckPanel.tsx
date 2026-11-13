@@ -1,12 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 interface DeviceStatus {
-  camera: 'checking' | 'available' | 'unavailable';
-  microphone: 'checking' | 'available' | 'unavailable';
+  camera: 'checking' | 'available' | 'unavailable' | 'denied';
+  microphone: 'checking' | 'available' | 'unavailable' | 'denied';
   speaker: 'checking' | 'available' | 'unavailable';
-  connection: 'checking' | 'good' | 'poor';
 }
 
 export function DeviceCheckPanel() {
@@ -14,22 +13,125 @@ export function DeviceCheckPanel() {
     camera: 'checking',
     microphone: 'checking',
     speaker: 'checking',
-    connection: 'checking',
   });
 
   const [hasChecked, setHasChecked] = useState(false);
+  const [isChecking, setIsChecking] = useState(false);
+  const streamRef = useRef<MediaStream | null>(null);
+
+  // Cleanup streams on unmount
+  useEffect(() => {
+    return () => {
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+      }
+    };
+  }, []);
 
   const handleCheckDevices = async () => {
     setHasChecked(true);
-    // Simulate device check
-    setTimeout(() => {
+    setIsChecking(true);
+    
+    // Reset status
+    setDeviceStatus({
+      camera: 'checking',
+      microphone: 'checking',
+      speaker: 'checking',
+    });
+
+    try {
+      // Check if mediaDevices API is available
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        setDeviceStatus({
+          camera: 'unavailable',
+          microphone: 'unavailable',
+          speaker: 'unavailable',
+        });
+        setIsChecking(false);
+        return;
+      }
+
+      // Stop any existing streams
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+      }
+
+      // Test camera and microphone
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ 
+          video: true, 
+          audio: true 
+        });
+        
+        streamRef.current = stream;
+
+        // Check which tracks we got
+        const videoTrack = stream.getVideoTracks()[0];
+        const audioTrack = stream.getAudioTracks()[0];
+
+        setDeviceStatus(prev => ({
+          ...prev,
+          camera: videoTrack ? 'available' : 'unavailable',
+          microphone: audioTrack ? 'available' : 'unavailable',
+        }));
+
+        // Stop tracks after checking
+        setTimeout(() => {
+          stream.getTracks().forEach(track => track.stop());
+          streamRef.current = null;
+        }, 1000);
+
+      } catch (err: any) {
+        console.error('Device check error:', err);
+        
+        // Handle specific error types
+        if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+          setDeviceStatus(prev => ({
+            ...prev,
+            camera: 'denied',
+            microphone: 'denied',
+          }));
+        } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+          setDeviceStatus(prev => ({
+            ...prev,
+            camera: 'unavailable',
+            microphone: 'unavailable',
+          }));
+        } else {
+          setDeviceStatus(prev => ({
+            ...prev,
+            camera: 'unavailable',
+            microphone: 'unavailable',
+          }));
+        }
+      }
+
+      // Check speaker (just verify audio output exists)
+      try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const hasAudioOutput = devices.some(device => device.kind === 'audiooutput');
+        
+        setDeviceStatus(prev => ({
+          ...prev,
+          speaker: hasAudioOutput ? 'available' : 'unavailable',
+        }));
+      } catch (err) {
+        setDeviceStatus(prev => ({
+          ...prev,
+          speaker: 'unavailable',
+        }));
+      }
+
+    } catch (err) {
+      console.error('Unexpected error during device check:', err);
       setDeviceStatus({
-        camera: 'available',
-        microphone: 'available',
-        speaker: 'available',
-        connection: 'good',
+        camera: 'unavailable',
+        microphone: 'unavailable',
+        speaker: 'unavailable',
       });
-    }, 1500);
+    } finally {
+      setIsChecking(false);
+    }
   };
 
   const getStatusIcon = (status: string) => {
@@ -38,10 +140,17 @@ export function DeviceCheckPanel() {
         <div className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse"></div>
       );
     }
-    if (status === 'available' || status === 'good') {
+    if (status === 'available') {
       return (
         <svg className="w-4 h-4 text-green-600" fill="currentColor" viewBox="0 0 20 20">
           <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+        </svg>
+      );
+    }
+    if (status === 'denied') {
+      return (
+        <svg className="w-4 h-4 text-orange-600" fill="currentColor" viewBox="0 0 20 20">
+          <path fillRule="evenodd" d="M13.477 14.89A6 6 0 015.11 6.524l8.367 8.368zm1.414-1.414L6.524 5.11a6 6 0 018.367 8.367zM18 10a8 8 0 11-16 0 8 8 0 0116 0z" clipRule="evenodd" />
         </svg>
       );
     }
@@ -54,7 +163,8 @@ export function DeviceCheckPanel() {
 
   const getStatusText = (status: string) => {
     if (status === 'checking') return 'Checking...';
-    if (status === 'available' || status === 'good') return 'Ready';
+    if (status === 'available') return 'Ready';
+    if (status === 'denied') return 'Permission denied';
     return 'Unavailable';
   };
 
@@ -78,9 +188,10 @@ export function DeviceCheckPanel() {
           </div>
           <button
             onClick={handleCheckDevices}
-            className="px-4 py-2 text-sm font-medium text-[#2563EB] hover:text-blue-600 transition-colors"
+            disabled={isChecking}
+            className="px-4 py-2 text-sm font-medium text-[#2563EB] hover:text-blue-600 transition-colors disabled:opacity-50"
           >
-            Check devices
+            {isChecking ? 'Checking...' : 'Check devices'}
           </button>
         </div>
       ) : (
@@ -127,25 +238,21 @@ export function DeviceCheckPanel() {
             </div>
           </div>
 
-          {/* Connection */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <svg className="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0" />
-              </svg>
-              <span className="text-xs font-medium text-slate-700">Connection</span>
+          {/* Permission denied message */}
+          {(deviceStatus.camera === 'denied' || deviceStatus.microphone === 'denied') && (
+            <div className="mt-3 p-2 bg-orange-50 border border-orange-200 rounded-lg">
+              <p className="text-xs text-orange-800">
+                Please grant camera and microphone permissions in your browser settings to join meetings.
+              </p>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-slate-600">{getStatusText(deviceStatus.connection)}</span>
-              {getStatusIcon(deviceStatus.connection)}
-            </div>
-          </div>
+          )}
 
           <button
             onClick={handleCheckDevices}
-            className="w-full mt-2 px-4 py-2 text-xs font-medium text-slate-700 bg-slate-50 border border-slate-200 rounded-lg hover:bg-slate-100 transition-colors"
+            disabled={isChecking}
+            className="w-full mt-2 px-4 py-2 text-xs font-medium text-slate-700 bg-slate-50 border border-slate-200 rounded-lg hover:bg-slate-100 transition-colors disabled:opacity-50"
           >
-            Check again
+            {isChecking ? 'Checking...' : 'Check again'}
           </button>
         </div>
       )}
