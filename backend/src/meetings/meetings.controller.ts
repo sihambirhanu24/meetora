@@ -52,6 +52,11 @@ export class MeetingsController {
     return { count };
   }
 
+  @Post("personal/:roomId/join")
+  joinPersonalRoom(@Request() req, @Param("roomId") roomId: string) {
+    return this.meetingsService.joinPersonalRoom(roomId, req.user.id);
+  }
+
   @Get(":id")
   findOne(@Request() req, @Param("id") id: string) {
     return this.meetingsService.findOne(id, req.user.id);
@@ -92,5 +97,10 @@ export class MeetingsController {
   @Get(":id/participants-status")
   getParticipantsStatus(@Request() req, @Param("id") id: string) {
     return this.meetingsService.getParticipantsStatus(id, req.user.id);
+  }
+
+  @Post(":id/livekit-token")
+  getLivekitToken(@Request() req, @Param("id") id: string) {
+    return this.meetingsService.getLivekitToken(id, req.user.id);
   }
 }

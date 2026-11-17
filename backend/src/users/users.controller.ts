@@ -33,4 +33,23 @@ export class UsersController {
   ) {
     return this.usersService.updateProfile(user.id, updateProfileDto);
   }
+
+  @Get("me/personal-room")
+  @HttpCode(HttpStatus.OK)
+  async getPersonalRoom(@CurrentUser() user: any) {
+    return this.usersService.getPersonalRoom(user.id);
+  }
+
+  @Get("me/activity")
+  @HttpCode(HttpStatus.OK)
+  async getActivity(@CurrentUser() user: any) {
+    return this.usersService.getActivity(user.id);
+  }
+
+  @Get("me/storage")
+  @HttpCode(HttpStatus.OK)
+  async getStorageStats() {
+    return this.usersService.getStorageStats();
+  }
 }
+

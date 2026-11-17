@@ -10,6 +10,7 @@ import { NotificationsService } from "../notifications/notifications.service";
 import { CreateMeetingDto } from "./dto/create-meeting.dto";
 import { UpdateMeetingDto } from "./dto/update-meeting.dto";
 import { UpdateParticipantStatusDto } from "./dto/update-participant-status.dto";
+import { AccessToken } from "livekit-server-sdk";
 
 @Injectable()
 export class MeetingsService {
@@ -616,5 +617,204 @@ export class MeetingsService {
         },
       },
     });
+  }
+
+  async joinPersonalRoom(roomId: string, userId: string) {
+    // Extract host user ID from personal room ID
+    // Format: personal-emailusername-userid6chars
+    // Example: personal-john-a1b2c3
+    
+    if (!roomId.startsWith('personal-')) {
+      throw new BadRequestException('Invalid personal room ID');
+    }
+
+    // Extract the 6-char user ID from the end
+    const parts = roomId.split('-');
+    if (parts.length < 3) {
+      throw new BadRequestException('Invalid personal room format');
+    }
+    
+    const shortUserId = parts[parts.length - 1]; // Last 6 chars of user ID
+    
+    // Find the host user by matching the first 6 characters of their ID
+    const hostUser = await this.prisma.user.findFirst({
+      where: {
+        id: {
+          startsWith: shortUserId,
+        },
+      },
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        profileImage: true,
+      },
+    });
+
+    if (!hostUser) {
+      throw new NotFoundException('Personal room host not found');
+    }
+
+    // Check if an active instant meeting already exists for this personal room
+    const existingMeeting = await this.prisma.meeting.findFirst({
+      where: {
+        hostId: hostUser.id,
+        meetingType: 'instant',
+        meetingLink: {
+          contains: roomId,
+        },
+        status: 'in_progress',
+      },
+      include: {
+        host: {
+          select: {
+            id: true,
+            email: true,
+            firstName: true,
+            lastName: true,
+            profileImage: true,
+          },
+        },
+        participants: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                email: true,
+                firstName: true,
+                lastName: true,
+                profileImage: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (existingMeeting) {
+      // Add current user as participant if not already present and not the host
+      if (userId !== hostUser.id) {
+        const isParticipant = existingMeeting.participants.some(
+          (p) => p.userId === userId,
+        );
+
+        if (!isParticipant) {
+          await this.prisma.meetingParticipant.create({
+            data: {
+              meetingId: existingMeeting.id,
+              userId: userId,
+              status: 'accepted',
+            },
+          });
+        }
+      }
+
+      return this.findOne(existingMeeting.id, userId);
+    }
+
+    // Create new instant meeting for this personal room
+    const now = new Date();
+    const endTime = new Date(now.getTime() + 24 * 60 * 60 * 1000); // 24 hours from now
+
+    const meeting = await this.prisma.meeting.create({
+      data: {
+        title: `${hostUser.firstName}'s Personal Room`,
+        description: `Personal meeting room for ${hostUser.firstName} ${hostUser.lastName}`,
+        startTime: now,
+        endTime: endTime,
+        timezone: 'UTC',
+        meetingType: 'instant',
+        status: 'in_progress',
+        hostId: hostUser.id,
+        meetingLink: `${process.env.FRONTEND_URL || 'https://meetora.app'}/meetings/${roomId}`,
+      },
+      include: {
+        host: {
+          select: {
+            id: true,
+            email: true,
+            firstName: true,
+            lastName: true,
+            profileImage: true,
+          },
+        },
+        participants: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                email: true,
+                firstName: true,
+                lastName: true,
+                profileImage: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    // Add current user as participant if they're not the host
+    if (userId !== hostUser.id) {
+      await this.prisma.meetingParticipant.create({
+        data: {
+          meetingId: meeting.id,
+          userId: userId,
+          status: 'accepted',
+        },
+      });
+    }
+
+    return this.findOne(meeting.id, userId);
+  }
+
+  async getLivekitToken(meetingId: string, userId: string) {
+    // Validate user has access to this meeting
+    await this.findOne(meetingId, userId);
+
+    // Get user info for identity
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { email: true, firstName: true, lastName: true },
+    });
+
+    if (!user) {
+      throw new NotFoundException("User not found");
+    }
+
+    const apiKey = process.env.LIVEKIT_API_KEY;
+    const apiSecret = process.env.LIVEKIT_API_SECRET;
+    const livekitUrl = process.env.LIVEKIT_URL || "wss://localhost:7880";
+
+    if (!apiKey || !apiSecret) {
+      throw new BadRequestException("LiveKit is not configured on this server");
+    }
+
+    const roomName = meetingId;
+    const participantIdentity = user.email;
+    const participantName = `${user.firstName} ${user.lastName}`;
+
+    const at = new AccessToken(apiKey, apiSecret, {
+      identity: participantIdentity,
+      name: participantName,
+      ttl: "2h",
+    });
+
+    at.addGrant({
+      roomJoin: true,
+      room: roomName,
+      canPublish: true,
+      canSubscribe: true,
+      canPublishData: true,
+    });
+
+    const token = await at.toJwt();
+
+    return {
+      token,
+      roomName,
+      livekitUrl,
+    };
   }
 }

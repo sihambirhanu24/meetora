@@ -1,10 +1,21 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
 import { useForm } from 'react-hook-form';
+import { useSearchParams } from 'next/navigation';
 import { useAuth } from '@/features/auth/hooks/use-auth';
 import { LoginRequest } from '@/features/auth/types';
+
+// Reads ?error= param and surfaces it — must live inside <Suspense>
+function GoogleErrorReader({ onError }: { onError: (msg: string) => void }) {
+  const searchParams = useSearchParams();
+  useEffect(() => {
+    const error = searchParams.get('error');
+    if (error) onError(decodeURIComponent(error));
+  }, [searchParams, onError]);
+  return null;
+}
 
 // Icon components
 const VideoIcon = ({ className = "w-6 h-6" }: { className?: string }) => (
@@ -66,6 +77,7 @@ export default function SignInPage() {
   const { loginMutation } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
+  const [googleError, setGoogleError] = useState<string | null>(null);
   
   const {
     register,
@@ -83,6 +95,10 @@ export default function SignInPage() {
 
   return (
     <div className="min-h-screen flex">
+      {/* Read ?error= from Google OAuth redirect safely inside Suspense */}
+      <Suspense fallback={null}>
+        <GoogleErrorReader onError={setGoogleError} />
+      </Suspense>
       {/* Left Panel - Brand & Product Preview */}
       <div className="hidden lg:flex lg:w-[56%] bg-[#101B35] relative overflow-hidden">
         {/* Subtle lighting effects */}
@@ -232,6 +248,13 @@ export default function SignInPage() {
           {loginMutation.isError && (
             <div className="p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">
               {(loginMutation.error as any)?.response?.data?.message || 'Invalid email or password'}
+            </div>
+          )}
+
+          {/* Google OAuth Error */}
+          {googleError && (
+            <div className="p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">
+              Google sign-in failed: {googleError}
             </div>
           )}
 

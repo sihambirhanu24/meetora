@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useState, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/features/auth/hooks/use-auth';
 import { AppSidebar } from '@/components/dashboard/AppSidebar';
 import { AppHeader } from '@/components/dashboard/AppHeader';
@@ -15,6 +16,25 @@ import { ScheduledMeetingsPanel } from '@/components/dashboard/ScheduledMeetings
 import { MeetingRoomPanel } from '@/components/dashboard/MeetingRoomPanel';
 import { DeviceCheckPanel } from '@/components/dashboard/DeviceCheckPanel';
 import { RecentActivityPanel } from '@/components/dashboard/RecentActivityPanel';
+
+// Separate component that uses useSearchParams — must be inside <Suspense>
+function GoogleLoginHandler() {
+  const searchParams = useSearchParams();
+  const queryClient = useQueryClient();
+  const router = useRouter();
+  const [handled, setHandled] = useState(false);
+
+  useEffect(() => {
+    const googleLogin = searchParams.get('google_login');
+    if (googleLogin === 'success' && !handled) {
+      setHandled(true);
+      queryClient.invalidateQueries({ queryKey: ['currentUser'] });
+      router.replace('/dashboard');
+    }
+  }, [searchParams, queryClient, router, handled]);
+
+  return null;
+}
 
 export default function DashboardPage() {
   const { user, isLoading, isAuthenticated } = useAuth();
@@ -40,6 +60,11 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-slate-50">
+      {/* Handle ?google_login=success param safely inside Suspense */}
+      <Suspense fallback={null}>
+        <GoogleLoginHandler />
+      </Suspense>
+
       {/* Mobile Navigation */}
       <MobileNav />
 
@@ -134,3 +159,4 @@ export default function DashboardPage() {
     </div>
   );
 }
+

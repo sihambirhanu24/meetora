@@ -45,6 +45,12 @@ export const meetingsApi = {
     return data;
   },
 
+  // Join personal room (creates instant meeting if needed)
+  joinPersonalRoom: async (roomId: string): Promise<Meeting> => {
+    const { data } = await axios.post(`/meetings/personal/${roomId}/join`);
+    return data;
+  },
+
   // Create meeting
   createMeeting: async (meetingData: CreateMeetingData): Promise<Meeting> => {
     const { data } = await axios.post('/meetings', meetingData);
